@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { MOCK_SPONSORS } from '../../data/sponsorsData';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, ArrowRight } from 'lucide-react';
 
 export const SponsorsSection = () => {
   const titleSponsor = MOCK_SPONSORS.find((s) => s.tier === 'Title Sponsor');
@@ -16,7 +17,7 @@ export const SponsorsSection = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
         
         {/* Header */}
-        <div className="text-center space-y-3 max-w-2xl mx-auto">
+        <div className="text-center space-y-4 max-w-2xl mx-auto">
           <span className="text-xs font-mono text-primary font-bold uppercase tracking-widest">
             FESTIVAL PARTNERS
           </span>
@@ -26,6 +27,15 @@ export const SponsorsSection = () => {
           <p className="text-sm text-slate-400">
             Parinaam 2026 is proudly presented in collaboration with visionary technology, engineering, and student media partners.
           </p>
+          <div className="pt-2">
+            <Link
+              href="/sponsor"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-purple-600 text-white font-bold text-xs uppercase font-mono shadow-[0_0_20px_rgba(217,70,239,0.4)] hover:shadow-[0_0_30px_rgba(217,70,239,0.7)] hover:scale-105 active:scale-[0.98] transition-all"
+            >
+              <span>Partner With Us / Register as Sponsor</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
 
         {/* Tier 1: Title Sponsor */}
