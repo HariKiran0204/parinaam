@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { MOCK_SPONSORS } from '../../data/sponsorsData';
-import { ExternalLink, ArrowRight } from 'lucide-react';
+import { ExternalLink, ArrowRight, Sparkles } from 'lucide-react';
 
 export const SponsorsSection = () => {
   const titleSponsor = MOCK_SPONSORS.find((s) => s.tier === 'Title Sponsor');
@@ -13,11 +13,11 @@ export const SponsorsSection = () => {
   );
 
   return (
-    <section id="sponsors" className="py-20 bg-[#060911] border-b border-slate-800/80">
+    <section id="sponsors" className="py-20 bg-[#060911] border-b border-slate-800/80 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
         
         {/* Header */}
-        <div className="text-center space-y-4 max-w-2xl mx-auto">
+        <div className="text-center space-y-3 max-w-2xl mx-auto">
           <span className="text-xs font-mono text-primary font-bold uppercase tracking-widest">
             FESTIVAL PARTNERS
           </span>
@@ -27,15 +27,6 @@ export const SponsorsSection = () => {
           <p className="text-sm text-slate-400">
             Parinaam 2026 is proudly presented in collaboration with visionary technology, engineering, and student media partners.
           </p>
-          <div className="pt-2">
-            <Link
-              href="/sponsor"
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-purple-600 text-white font-bold text-xs uppercase font-mono shadow-[0_0_20px_rgba(217,70,239,0.4)] hover:shadow-[0_0_30px_rgba(217,70,239,0.7)] hover:scale-105 active:scale-[0.98] transition-all"
-            >
-              <span>Partner With Us / Register as Sponsor</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
         </div>
 
         {/* Tier 1: Title Sponsor */}
@@ -95,6 +86,27 @@ export const SponsorsSection = () => {
               <h4 className="text-base font-bold text-white">{sp.name}</h4>
             </div>
           ))}
+        </div>
+
+        {/* ========================================================= */}
+        {/* BUTTON JUST BELOW THE LIST OF SPONSORS (AS REQUESTED) */}
+        {/* ========================================================= */}
+        <div className="text-center pt-8 border-t border-purple-900/40 max-w-xl mx-auto space-y-4">
+          <p className="text-sm sm:text-base text-slate-300 font-medium">
+            Interested in showcasing your brand at <span className="text-white font-bold">PARINAAM 2026</span>?
+          </p>
+          <div>
+            <Link
+              href="/sponsor"
+              className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-purple-600 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-[0_0_25px_rgba(217,70,239,0.5)] hover:shadow-[0_0_40px_rgba(217,70,239,0.8)] hover:scale-105 active:scale-[0.98] transition-all cursor-pointer border border-fuchsia-400/40"
+            >
+              <span>Partner With Us / Register as Sponsor</span>
+              <ArrowRight className="w-4 h-4 text-white animate-pulse" />
+            </Link>
+          </div>
+          <p className="text-[11px] font-mono text-purple-300/60">
+            Amrita Vishwa Vidyapeetham • Amaravati Campus
+          </p>
         </div>
 
       </div>
