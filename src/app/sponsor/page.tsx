@@ -162,33 +162,26 @@ export default function SponsorRegistrationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#05030a] text-slate-100 fest-grid-bg pt-28 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#05030a] text-slate-100 fest-grid-bg pt-10 sm:pt-14 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+      {/* Hide the top global navbar specifically on this sponsor page without altering the global codebase */}
+      <style>{`
+        header.fixed {
+          display: none !important;
+        }
+      `}</style>
+
       {/* Ambient Theme Glows */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-purple-600/15 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-purple-600/15 rounded-full blur-[150px] pointer-events-none" />
       <div className="absolute top-1/2 right-10 w-[500px] h-[500px] bg-fuchsia-600/10 rounded-full blur-[160px] pointer-events-none" />
       <div className="absolute bottom-20 left-10 w-[400px] h-[400px] bg-purple-900/15 rounded-full blur-[140px] pointer-events-none" />
 
       <div className="max-w-6xl mx-auto space-y-12 relative z-10">
-        
-        {/* Breadcrumb Bar */}
-        <div className="flex items-center justify-between text-xs font-mono text-slate-400 border-b border-purple-900/40 pb-4">
-          <div className="flex items-center gap-2">
-            <Link href="/" className="hover:text-fuchsia-400 transition-colors">
-              HOME
-            </Link>
-            <span>/</span>
-            <span className="text-fuchsia-400 font-semibold">THE PACKAGES</span>
-          </div>
-          <span className="bg-purple-950/60 text-fuchsia-300 border border-purple-500/30 px-3 py-1 rounded-full uppercase tracking-wider text-[11px] font-mono">
-            PARINAAM 2026 • AMARAVATI
-          </span>
-        </div>
 
         {/* Section Header with Pixelify Sans Font */}
-        <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/50 border border-purple-500/30 text-xs font-mono text-fuchsia-300">
+        <div className="text-center space-y-4 max-w-3xl mx-auto pt-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/60 border border-purple-500/30 text-xs font-mono text-fuchsia-300">
             <Sparkles size={14} className="text-amber-400" />
-            <span className="uppercase tracking-widest font-bold">FESTIVAL PARTNERS • THE PACKAGES</span>
+            <span className="uppercase tracking-widest font-bold">THE PACKAGES</span>
           </div>
           
           <h1 className="text-3xl sm:text-5xl font-bold tracking-wide text-white font-['Pixelify_Sans',_monospace]">
@@ -286,7 +279,7 @@ export default function SponsorRegistrationPage() {
           </div>
         ) : (
           <>
-            {/* 3 Packages Cards (Matching Website Screenshot Cards) */}
+            {/* 3 Packages Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {SPONSOR_PACKAGES.map((pkg) => {
                 const isSelected = formData.tier === pkg.id;
