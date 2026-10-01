@@ -1,24 +1,26 @@
 'use client';
 
-import React, { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { RegistrationFlow } from '../../components/registration/RegistrationFlow';
+import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-function RegistrationContent() {
+function RedirectContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const initialEventId = searchParams.get('event') || undefined;
 
-  return (
-    <div className="pt-28 pb-20">
-      <RegistrationFlow initialEventId={initialEventId} />
-    </div>
-  );
+  useEffect(() => {
+    const qs = searchParams.toString();
+    router.replace(qs ? `/auth/register?${qs}` : '/auth/register');
+  }, [router, searchParams]);
+
+  return null;
 }
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="pt-32 text-center text-slate-400 font-mono">Loading registration portal...</div>}>
-      <RegistrationContent />
+    <Suspense fallback={null}>
+      <RedirectContent />
     </Suspense>
   );
 }
+

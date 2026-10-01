@@ -69,6 +69,25 @@ const FEE_STATUS = [
   { value: 'false', label: 'Unpaid / Inactive' },
 ];
 
+function formatDateTimeIST(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function AdminUsersPage() {
   const { user: me, loading: authLoading } = useRequireRole('super_admin');
   const [users, setUsers] = useState<User[]>([]);
@@ -259,15 +278,28 @@ export default function AdminUsersPage() {
 
   const handleDeleteUser = async () => {
     if (!deleteConfirmUser) return;
+    const deletedId = deleteConfirmUser.id;
+    const isAmrita = deleteConfirmUser.is_amrita_student;
+    const vStatus = deleteConfirmUser.verification_status;
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/admin/users/${deleteConfirmUser.id}`, {
+      const res = await fetch(`/api/admin/users/${deletedId}`, {
         method: 'DELETE',
       });
       const data = await res.json();
       if (data.success) {
-        showToast('Student account deleted.');
+        showToast('Student account deleted successfully.');
         setDeleteConfirmUser(null);
+        setUsers(prev => prev.filter(u => u.id !== deletedId));
+        setTotal(t => Math.max(0, t - 1));
+        setStats(s => ({
+          ...s,
+          total: Math.max(0, s.total - 1),
+          amrita_count: isAmrita ? Math.max(0, s.amrita_count - 1) : s.amrita_count,
+          external_count: !isAmrita ? Math.max(0, s.external_count - 1) : s.external_count,
+          pending_count: vStatus === 'pending' ? Math.max(0, s.pending_count - 1) : s.pending_count,
+          verified_count: vStatus === 'verified' ? Math.max(0, s.verified_count - 1) : s.verified_count,
+        }));
         fetchUsers();
       } else {
         alert(data.error || 'Failed to delete user');
@@ -613,7 +645,11 @@ export default function AdminUsersPage() {
 
                       {/* Pass Status */}
                       <td className="px-4 py-3.5">
-                        {u.is_amrita_student ? (
+                        {u.verification_status !== 'verified' ? (
+                          <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                            Pending Approval
+                          </span>
+                        ) : u.is_amrita_student ? (
                           <span className="text-[11px] font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md">
                             Free Amrita Pass
                           </span>
@@ -761,6 +797,19 @@ export default function AdminUsersPage() {
                     <div>
                       <p className="text-slate-500">City</p>
                       <p className="text-slate-200 mt-0.5">{viewUser.city || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Registration Date & Time (IST)</p>
+                      <p className="font-mono text-slate-300 mt-0.5">{formatDateTimeIST(viewUser.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">KYC Verification Status</p>
+                      <p className={`font-semibold capitalize mt-0.5 ${
+                        viewUser.verification_status === 'verified' ? 'text-emerald-400' :
+                        viewUser.verification_status === 'rejected' ? 'text-red-400' : 'text-amber-400'
+                      }`}>
+                        {viewUser.verification_status || 'Pending'}
+                      </p>
                     </div>
                   </div>
 

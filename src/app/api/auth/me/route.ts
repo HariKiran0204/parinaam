@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
 
     if (result.rows.length === 0) return unauthorized('User not found');
 
-    return success({ user: result.rows[0] });
+    const res = success({ user: result.rows[0] });
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    return res;
   } catch (err) {
     console.error('Get me error:', err);
     return serverError();

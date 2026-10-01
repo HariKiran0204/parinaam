@@ -53,7 +53,7 @@ export const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/register" className="hover:text-white transition-colors text-primary font-medium">
+                <Link href="/auth/register" className="hover:text-white transition-colors text-purple-400 font-medium">
                   Register For Pass
                 </Link>
               </li>

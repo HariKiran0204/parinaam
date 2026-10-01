@@ -8,10 +8,12 @@ import { FestEvent, EventCategory } from '../../types';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export const FeaturedEvents = () => {
   const [selectedEvent, setSelectedEvent] = useState<FestEvent | null>(null);
   const [activeCategory, setActiveCategory] = useState<EventCategory | 'All'>('All');
+  const { user } = useAuth();
   const router = useRouter();
 
   const categories: (EventCategory | 'All')[] = [
@@ -28,7 +30,7 @@ export const FeaturedEvents = () => {
     : MOCK_EVENTS.filter((e) => e.category === activeCategory);
 
   const handleQuickRegister = (event: FestEvent) => {
-    router.push(`/register?event=${event.id}`);
+    router.push(user ? '/events' : `/auth/register?event=${event.id}`);
   };
 
   return (
@@ -43,7 +45,7 @@ export const FeaturedEvents = () => {
               <span>COMPETITIONS & CLUSTERS</span>
             </span>
             <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-display">
-              Flagship Events & Pro-Nights
+              Flagship Events & Competitions
             </h2>
             <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-xl font-normal">
               Explore national 36-hour hackathons, steel robotics combat, LAN esports battles, and battle of bands on stage.
@@ -88,10 +90,10 @@ export const FeaturedEvents = () => {
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <Link
-                href="/register"
+                href={user ? '/dashboard/pass' : '/auth/register'}
                 className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-900/30 transition-all"
               >
-                Get Delegate Pass
+                {user ? 'See Delegate Pass' : 'Get Delegate Pass'}
               </Link>
               <Link
                 href="/schedule"

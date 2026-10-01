@@ -21,9 +21,9 @@ export const FestIdentity = () => {
     },
     {
       icon: Music,
-      title: 'Battle of Bands & Pronites',
-      description: 'National band competitions, choreography clashes, and headliner music acts on the main lawn.',
-      tag: 'Pro-Nights Stage',
+      title: 'Battle of Bands & Live Concerts',
+      description: 'National band competitions, choreography clashes, and headline music acts on the main lawn.',
+      tag: 'Grand Stage',
       highlight: '₹1.0L Prize',
     },
     {

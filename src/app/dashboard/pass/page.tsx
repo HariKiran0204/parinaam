@@ -9,7 +9,6 @@ import {
   Calendar, MapPin, Sparkles, CheckCircle, Clock,
   ExternalLink, Building2, User, GraduationCap
 } from 'lucide-react';
-import { useRequireAuth } from '@/context/AuthContext';
 
 interface Registration {
   id: string;
@@ -24,14 +23,17 @@ interface Registration {
   club_color: string;
 }
 
+import { useRequireAuth, useAuth } from '@/context/AuthContext';
+
 export default function StudentPassPage() {
   const { user } = useRequireAuth();
+  const { refreshUser } = useAuth();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const passRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!user) return;
+    refreshUser();
     fetch('/api/registrations')
       .then(r => r.json())
       .then(d => {
@@ -39,7 +41,8 @@ export default function StudentPassPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!user) return null;
 
@@ -101,33 +104,60 @@ export default function StudentPassPage() {
             </div>
 
             <div className="text-left sm:text-right">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
-                <ShieldCheck size={14} /> PASS ACTIVE
-              </span>
-              <p className="text-[11px] font-mono text-purple-400 mt-1">
-                {user.is_amrita_student ? 'FREE AMRITA ACCESS' : 'DELEGATE PASS'}
-              </p>
+              {user.verification_status === 'verified' ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                    <ShieldCheck size={14} /> PASS ACTIVE
+                  </span>
+                  <p className="text-[11px] font-mono text-purple-400 mt-1">
+                    {user.is_amrita_student ? 'FREE AMRITA ACCESS' : 'DELEGATE PASS'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
+                    <Clock size={14} /> VERIFICATION PENDING
+                  </span>
+                  <p className="text-[11px] font-mono text-amber-400 mt-1">
+                    Waiting for Approval
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
           {/* Pass Body (QR + Student Details) */}
           <div className="p-6 sm:p-8 grid md:grid-cols-5 gap-6 items-center">
-            {/* Left QR Code */}
-            <div className="md:col-span-2 flex flex-col items-center justify-center p-4 bg-white/5 border border-white/10 rounded-2xl text-center">
-              <div className="bg-white p-3.5 rounded-2xl shadow-lg inline-block mb-3">
-                <QRCodeSVG
-                  value={qrValue}
-                  size={170}
-                  bgColor="#ffffff"
-                  fgColor="#15002b"
-                  level="H"
-                  includeMargin={false}
-                />
-              </div>
-              <p className="font-mono text-[11px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-md">
-                TOKEN: {qrValue.slice(0, 14).toUpperCase()}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-2">Scan at Entry Gates & Event Venues</p>
+            {/* Left QR Code / Locked Placeholder */}
+            <div className="md:col-span-2 flex flex-col items-center justify-center p-5 bg-white/5 border border-white/10 rounded-2xl text-center">
+              {user.verification_status === 'verified' ? (
+                <>
+                  <div className="bg-white p-3.5 rounded-2xl shadow-lg inline-block mb-3">
+                    <QRCodeSVG
+                      value={qrValue}
+                      size={170}
+                      bgColor="#ffffff"
+                      fgColor="#15002b"
+                      level="H"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="font-mono text-[11px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-md">
+                    TOKEN: {qrValue.slice(0, 14).toUpperCase()}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-2">Scan at Entry Gates & Event Venues</p>
+                </>
+              ) : (
+                <div className="py-4 px-2">
+                  <div className="w-24 h-24 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-3 text-amber-400">
+                    <Clock size={40} className="animate-pulse" />
+                  </div>
+                  <p className="font-bold text-xs text-white">QR Pass Locked</p>
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    Digital QR Code will be activated automatically once verification is approved.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Right Student Details */}
@@ -138,31 +168,32 @@ export default function StudentPassPage() {
                   {user.full_name || user.email}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
+                {user.phone && <p className="text-xs text-slate-500 font-mono mt-0.5">{user.phone}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-500">Institution</p>
                   <p className="text-xs font-semibold text-slate-200 mt-0.5">
-                    {user.is_amrita_student ? 'Amrita Amaravati' : (user.college_name || 'External College')}
+                    {user.is_amrita_student ? 'Amrita Vishwa Vidyapeetham, Amaravati' : (user.college_name || 'External College')}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-500">Roll Number</p>
                   <p className="text-xs font-mono font-semibold text-purple-300 mt-0.5">
-                    {user.roll_number || 'N/A'}
+                    {user.roll_number || 'Registered Participant'}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-500">Branch</p>
                   <p className="text-xs font-semibold text-slate-200 mt-0.5">
-                    {user.department || 'General'}
+                    {user.department || (user.is_amrita_student ? 'Amrita Engineering' : 'Engineering')}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-500">Year</p>
                   <p className="text-xs font-semibold text-slate-200 mt-0.5">
-                    {user.year_of_study ? `Year ${user.year_of_study}` : 'N/A'}
+                    {user.year_of_study ? (user.year_of_study.includes('Year') ? user.year_of_study : `Year ${user.year_of_study}`) : 'Enrolled Student'}
                   </p>
                 </div>
               </div>
@@ -171,9 +202,11 @@ export default function StudentPassPage() {
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 flex items-center gap-3">
                 <Sparkles size={16} className="text-purple-400 shrink-0" />
                 <p className="text-xs text-purple-200">
-                  {user.is_amrita_student
-                    ? 'Official Amrita Student Pass — Unlimited access to all non-paid cultural & tech arenas.'
-                    : 'Verified Delegate Pass — Carry valid government / college photo ID.'}
+                  {user.verification_status === 'verified'
+                    ? user.is_amrita_student
+                      ? 'Official Amrita Student Pass — Unlimited access to all non-paid cultural & tech arenas.'
+                      : 'Verified Delegate Pass — Carry valid government / college photo ID.'
+                    : 'Account Verification Pending — Waiting for approval.'}
                 </p>
               </div>
             </div>

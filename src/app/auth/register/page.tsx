@@ -23,6 +23,7 @@ import {
   Sparkles,
   ShieldCheck,
   IdCard,
+  MapPin,
 } from 'lucide-react';
 import { useAuth, RegisterData } from '@/context/AuthContext';
 
@@ -37,6 +38,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
+  const [idCardPreview, setIdCardPreview] = useState<string>('');
   const [registrationDone, setRegistrationDone] = useState(false);
   const [needsIdUpload, setNeedsIdUpload] = useState(false);
 
@@ -52,6 +54,7 @@ export default function RegisterPage() {
     department: '',
     year_of_study: '',
     city: '',
+    id_card_url: '',
   });
 
   React.useEffect(() => {
@@ -66,6 +69,48 @@ export default function RegisterPage() {
       student_type: type,
       college_name: type === 'amrita' ? 'Amrita Vishwa Vidyapeetham, Amaravati' : '',
     }));
+  };
+
+  const handleIdCardSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file (JPG, PNG, WebP)');
+      return;
+    }
+    setError('');
+    setIdCardFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1200;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+          setIdCardPreview(compressedBase64);
+        } else {
+          setIdCardPreview(event.target?.result as string);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const isAmritaSelected = studentType === 'amrita';
@@ -92,10 +137,16 @@ export default function RegisterPage() {
     const cleanPhone = (form.phone ?? '').replace(/\D/g, '');
     if (!cleanPhone) return 'Phone number is required';
     if (cleanPhone.length !== 10) return 'Phone number must be exactly 10 digits';
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) return 'Please enter a valid 10-digit mobile number (starting with 6, 7, 8, or 9)';
-    if (!isAmritaSelected && !(form.college_name ?? '').trim()) return 'College / Institution name is required';
-    if (isAmritaSelected && !(form.roll_number ?? '').trim()) return 'Amrita Roll Number / Student ID is required';
-    if (!form.department) return 'Please select your Branch';
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) return 'Phone number must start with 6, 7, 8, or 9 (excluding +91)';
+    if (isAmritaSelected) {
+      if (!(form.roll_number ?? '').trim()) return 'Amrita Roll Number / Student ID is required';
+      if (!form.department) return 'Please select your Branch';
+    } else {
+      if (!(form.college_name ?? '').trim()) return 'College / Institution name is required';
+      if (!(form.roll_number ?? '').trim()) return 'Roll / Student ID Number is required';
+      if (!(form.department ?? '').trim()) return 'Branch / Department name is required';
+      if (!(form.city ?? '').trim()) return 'City / Location is required';
+    }
     if (!form.year_of_study) return 'Please select your Year of Study';
     return '';
   };
@@ -113,6 +164,12 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!isAmritaSelected && !idCardPreview && !idCardFile) {
+      setError('Please upload your college/university ID card photo before submitting');
+      return;
+    }
+
     setLoading(true);
 
     const { confirmPassword, ...data } = form;
@@ -121,6 +178,7 @@ export default function RegisterPage() {
       phone: (data.phone || '').replace(/\D/g, '').slice(0, 10),
       student_type: studentType,
       college_name: isAmritaSelected ? 'Amrita Vishwa Vidyapeetham, Amaravati' : data.college_name,
+      id_card_url: idCardPreview || undefined,
     });
 
     if (result.success) {
@@ -130,20 +188,6 @@ export default function RegisterPage() {
       setError(result.error || 'Registration failed');
     }
     setLoading(false);
-  };
-
-  const handleIdUpload = async () => {
-    if (!idCardFile) return;
-    setLoading(true);
-    const formData = new FormData();
-    formData.append('id_card', idCardFile);
-    try {
-      await fetch('/api/auth/upload-id', { method: 'POST', body: formData });
-    } catch {
-      /* continue even if offline */
-    }
-    setLoading(false);
-    router.push('/dashboard');
   };
 
   if (registrationDone) {
@@ -162,11 +206,11 @@ export default function RegisterPage() {
           <h2 className="text-2xl font-bold text-white mb-2">Registration Submitted!</h2>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold mb-4">
-            <AlertTriangle size={14} /> Verification Pending Approval
+            <AlertTriangle size={14} /> Waiting for Approval
           </div>
 
           <p className="text-slate-300 mb-6 text-xs leading-relaxed">
-            Your student profile has been created successfully. Super Admin is reviewing registration records. Once approved, you will have full access to register for festival events and competitions.
+            Your student profile has been created successfully and is currently waiting for approval. Once approved, your digital festival QR pass and event registrations will be activated automatically.
           </p>
 
           <button
@@ -276,8 +320,8 @@ export default function RegisterPage() {
                         </div>
                         <h4 className="font-semibold text-sm text-slate-100">Amrita Student</h4>
                         <p className="text-xs text-slate-400 mt-1">Amrita Vishwa Vidyapeetham</p>
-                        <div className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                          <Sparkles size={10} /> Auto-Verified
+                        <div className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+                          <Sparkles size={10} /> Campus Delegate
                         </div>
                       </button>
 
@@ -394,10 +438,10 @@ export default function RegisterPage() {
                     />
                   </Field>
 
-                  <Field label="Phone Number (10 digits) *" icon={<Phone size={15} />}>
+                  <Field label="Phone Number (10 digits, starts with 6,7,8,9) *" icon={<Phone size={15} />}>
                     <input
                       type="tel"
-                      placeholder="10-digit mobile number"
+                      placeholder="e.g. 9876543210"
                       value={form.phone}
                       maxLength={10}
                       onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -435,36 +479,50 @@ export default function RegisterPage() {
 
                   {/* Roll Number */}
                   <Field
-                    label={isAmritaSelected ? 'Amrita Roll Number / Student ID *' : 'Roll / Registration Number (Optional)'}
+                    label={isAmritaSelected ? 'Amrita Roll Number / Student ID *' : 'Roll / Student ID Number *'}
                     icon={<GraduationCap size={15} />}
                   >
                     <input
                       type="text"
-                      placeholder={isAmritaSelected ? 'e.g. CB.EN.U4CSE21001 or AV.SC.U4...' : 'e.g. 21BCE1024'}
+                      placeholder={isAmritaSelected ? 'e.g. CB.EN.U4CSE21001 or AV.SC.U4...' : 'e.g. 21BCE1024 / University Roll ID'}
                       value={form.roll_number}
                       onChange={e => set('roll_number', e.target.value)}
-                      required={isAmritaSelected}
+                      required
                       className={inputCls}
                     />
                   </Field>
 
                   {/* Department & Year */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Branch *" icon={null}>
-                      <select
-                        value={form.department}
-                        onChange={e => set('department', e.target.value)}
-                        required
-                        className={inputCls}
-                      >
-                        <option value="">Select Branch</option>
-                        {['CSE', 'CSE-AIE', 'AIDS', 'CCE', 'ECE', 'QUANTUM'].map(b => (
-                          <option key={b} value={b} className="bg-[#0e0b1a] text-slate-100">
-                            {b}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {isAmritaSelected ? (
+                      <Field label="Branch (Amaravati Campus) *" icon={null}>
+                        <select
+                          value={form.department}
+                          onChange={e => set('department', e.target.value)}
+                          required
+                          className={inputCls}
+                        >
+                          <option value="">Select Branch</option>
+                          {['CSE', 'CSE-AIE', 'AIDS', 'CCE', 'ECE', 'QUANTUM'].map(b => (
+                            <option key={b} value={b} className="bg-[#0e0b1a] text-slate-100">
+                              {b}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ) : (
+                      <Field label="Branch / Department *" icon={null}>
+                        <input
+                          type="text"
+                          placeholder="e.g. Mechanical, Information Tech..."
+                          value={form.department}
+                          onChange={e => set('department', e.target.value)}
+                          required
+                          className={inputCls}
+                        />
+                      </Field>
+                    )}
+
                     <Field label="Year of Study *" icon={null}>
                       <select
                         value={form.year_of_study}
@@ -482,15 +540,19 @@ export default function RegisterPage() {
                     </Field>
                   </div>
 
-                  <Field label="City / Location" icon={null}>
-                    <input
-                      type="text"
-                      placeholder="e.g. Amaravati, Vijayawada, Chennai..."
-                      value={form.city}
-                      onChange={e => set('city', e.target.value)}
-                      className={inputCls}
-                    />
-                  </Field>
+                  {/* City / Location: Only for Other College Students, Removed for Amrita */}
+                  {!isAmritaSelected && (
+                    <Field label="City / Location *" icon={<MapPin size={15} />}>
+                      <input
+                        type="text"
+                        placeholder="e.g. Vijayawada, Chennai, Hyderabad..."
+                        value={form.city}
+                        onChange={e => set('city', e.target.value)}
+                        required
+                        className={inputCls}
+                      />
+                    </Field>
+                  )}
                 </motion.div>
               )}
 
@@ -536,13 +598,83 @@ export default function RegisterPage() {
                         <span className="text-slate-200">{form.roll_number}</span>
                       </div>
                     )}
-                    <div className="flex justify-between py-1">
+                    <div className="flex justify-between py-1 border-b border-white/5">
                       <span className="text-slate-400">Dept / Year</span>
                       <span className="text-slate-200">
-                        {form.department || '—'} ({form.year_of_study || '—'})
+                        {form.department || '—'} ({form.year_of_study ? `Year ${form.year_of_study}` : '—'})
                       </span>
                     </div>
+                    {!isAmritaSelected && form.city && (
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-400">Location</span>
+                        <span className="text-slate-200">{form.city}</span>
+                      </div>
+                    )}
                   </div>
+
+                  {/* External student ID card upload inside Step 2 */}
+                  {!isAmritaSelected && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-semibold text-slate-200">
+                          Upload College / University ID Card Photo <span className="text-amber-400">*</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400">JPG, PNG (Max 5MB)</span>
+                      </div>
+
+                      {idCardPreview ? (
+                        <div className="relative rounded-2xl border border-purple-500/40 bg-purple-950/20 p-3 overflow-hidden">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={idCardPreview}
+                              alt="ID Preview"
+                              className="w-20 h-16 object-cover rounded-xl border border-white/20 bg-black/40 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-white truncate">
+                                {idCardFile?.name || 'College ID Card Selected'}
+                              </p>
+                              <p className="text-[11px] text-emerald-400 flex items-center gap-1 mt-0.5">
+                                <CheckCircle size={12} /> Ready for verification review
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIdCardFile(null);
+                                  setIdCardPreview('');
+                                }}
+                                className="text-[11px] text-purple-300 hover:text-purple-200 underline mt-1 block"
+                              >
+                                Replace Photo
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => document.getElementById('register-id-card-upload')?.click()}
+                          className="border-2 border-dashed border-white/20 hover:border-purple-500/50 rounded-2xl p-5 text-center cursor-pointer transition-all bg-white/[0.02] hover:bg-white/[0.04]"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center mx-auto mb-2">
+                            <Upload size={18} />
+                          </div>
+                          <p className="text-xs font-medium text-slate-200">
+                            Click to upload college ID card photo
+                          </p>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            Clear front-side photo or scan for verification approval
+                          </p>
+                          <input
+                            id="register-id-card-upload"
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                            className="hidden"
+                            onChange={handleIdCardSelect}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className={`p-3 rounded-xl border text-xs leading-relaxed ${
                     isAmritaSelected
@@ -552,12 +684,12 @@ export default function RegisterPage() {
                     {isAmritaSelected ? (
                       <div className="flex items-center gap-2">
                         <ShieldCheck size={16} className="text-purple-400 shrink-0" />
-                        <span>Your Amrita email will be instantly verified for festival access.</span>
+                        <span>Amrita student profile submitted for verification. Free entry passes apply.</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <IdCard size={16} className="text-amber-400 shrink-0" />
-                        <span>As an external participant, you will upload your college ID card right after this step.</span>
+                        <span>Your uploaded ID card and details will be reviewed for event registration approval.</span>
                       </div>
                     )}
                   </div>

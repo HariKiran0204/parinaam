@@ -58,6 +58,7 @@ interface PendingUser {
   id: string;
   full_name: string;
   email: string;
+  phone?: string;
   college_name: string;
   id_card_url: string;
   created_at: string;
@@ -78,6 +79,25 @@ interface Club {
 
 const BRANCH_LIST = ['CSE', 'CSE-AIE', 'AIDS', 'CCE', 'ECE', 'QUANTUM'];
 
+function formatDateTimeIST(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function SuperAdminDashboard() {
   const { user } = useRequireRole('super_admin');
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -89,6 +109,7 @@ export default function SuperAdminDashboard() {
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [tab, setTab] = useState<'overview' | 'analytics' | 'clubs' | 'verify' | 'broadcast'>('overview');
   const [refreshing, setRefreshing] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   // Broadcast ticker state
   const [broadcastText, setBroadcastText] = useState('Welcome to PARINAAM 2026! Registrations are officially open for all 12 Clubs.');
@@ -131,9 +152,7 @@ export default function SuperAdminDashboard() {
       body: JSON.stringify({ status, note }),
     });
     setPendingUsers(prev => prev.filter(u => u.id !== userId));
-    if (overview) {
-      setOverview(s => s ? { ...s, pending_verification: Math.max(0, s.pending_verification - 1) } : s);
-    }
+    loadData();
   };
 
   if (!user) return null;
@@ -520,44 +539,104 @@ export default function SuperAdminDashboard() {
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
                 {pendingUsers.map(u => (
-                  <div key={u.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                  <div key={u.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3.5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h4 className="font-bold text-white text-sm">{u.full_name}</h4>
-                        <p className="text-xs text-slate-400">{u.email}</p>
-                        <p className="text-xs text-slate-500 mt-1">{u.college_name || 'External College'}</p>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-white text-sm">{u.full_name || 'Student'}</h4>
+                          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                            Pending Review
+                          </span>
+                        </div>
+                        <p className="text-xs text-purple-300 font-mono mt-0.5">{u.email}</p>
+                        {u.phone && <p className="text-xs text-slate-400 font-mono mt-0.5">📞 {u.phone}</p>}
                       </div>
-                      <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-                        Pending
+                      <span className="text-[11px] font-mono text-slate-500 shrink-0 text-right">
+                        {formatDateTimeIST(u.created_at)}
                       </span>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-black/30 p-3 rounded-xl border border-white/5">
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">College / University</span>
+                        <span className="font-semibold text-slate-200 truncate block">{u.college_name || 'External'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">Roll / Student ID</span>
+                        <span className="font-mono text-purple-300 truncate block">{u.roll_number || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">Branch</span>
+                        <span className="font-medium text-slate-200">{u.department || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">Year of Study</span>
+                        <span className="font-medium text-slate-200">{u.year_of_study ? `Year ${u.year_of_study}` : '—'}</span>
+                      </div>
+                    </div>
+
                     {u.id_card_url && (
-                      <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40">
-                        <img
-                          src={u.id_card_url}
-                          alt="Student ID"
-                          className="w-full h-44 object-contain"
-                        />
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                          <span>Uploaded College ID Card:</span>
+                          <button
+                            onClick={() => setZoomedImage(u.id_card_url)}
+                            className="text-purple-400 hover:text-purple-300 flex items-center gap-1 font-semibold"
+                          >
+                            <Eye size={12} /> Zoom ID Card
+                          </button>
+                        </div>
+                        <div
+                          onClick={() => setZoomedImage(u.id_card_url)}
+                          className="rounded-xl overflow-hidden border border-white/10 bg-black/60 cursor-pointer hover:border-purple-500/40 transition-colors"
+                        >
+                          <img
+                            src={u.id_card_url}
+                            alt="Student ID"
+                            className="w-full h-44 object-contain"
+                          />
+                        </div>
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 pt-1">
+                    <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                       <button
                         onClick={() => handleVerify(u.id, 'verified')}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-lg shadow-emerald-900/20"
                       >
-                        <Check size={14} /> Approve Pass
+                        <Check size={14} /> Approve & Grant Pass
                       </button>
                       <button
                         onClick={() => handleVerify(u.id, 'rejected')}
-                        className="flex-1 bg-red-600/80 hover:bg-red-600 text-white font-semibold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        className="flex-1 bg-red-600/80 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
                       >
                         <X size={14} /> Reject
                       </button>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Photo Zoom Modal */}
+            {zoomedImage && (
+              <div
+                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+                onClick={() => setZoomedImage(null)}
+              >
+                <div className="relative max-w-3xl max-h-[85vh] bg-[#0e071c] p-2 rounded-2xl border border-white/20">
+                  <button
+                    onClick={() => setZoomedImage(null)}
+                    className="absolute top-4 right-4 bg-black/60 text-white p-2 rounded-full hover:bg-black/90"
+                  >
+                    <X size={18} />
+                  </button>
+                  <img
+                    src={zoomedImage}
+                    alt="Zoomed Student ID"
+                    className="max-w-full max-h-[80vh] object-contain rounded-xl"
+                  />
+                </div>
               </div>
             )}
           </div>

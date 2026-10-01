@@ -20,18 +20,19 @@ interface Registration {
 
 export default function DashboardPage() {
   const { user } = useRequireAuth();
-  const { logout } = useAuth();
+  const { logout, refreshUser } = useAuth();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegs, setLoadingRegs] = useState(true);
   const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    refreshUser();
     fetch('/api/registrations')
       .then(r => r.json())
       .then(d => { if (d.success) setRegistrations(d.data.registrations); })
       .finally(() => setLoadingRegs(false));
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!user) return null;
 
@@ -40,39 +41,15 @@ export default function DashboardPage() {
   const checkedIn = registrations.filter(r => r.checked_in_at).length;
 
   const verificationBanner = () => {
-    if (user.verification_status === 'pending' && !user.is_amrita_student) {
+    if (user.verification_status === 'pending') {
       return (
         <div className="mb-6 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
           <AlertTriangle size={18} className="text-amber-400 shrink-0" />
           <div>
-            <p className="text-amber-300 font-medium text-sm">ID Verification Pending</p>
-            <p className="text-amber-400/70 text-xs mt-0.5">Our team is reviewing your college ID card. You&apos;ll receive access once approved (usually within 24 hours).</p>
+            <p className="text-amber-300 font-medium text-sm">Account Verification Pending</p>
+            <p className="text-amber-400/70 text-xs mt-0.5">Your profile is currently waiting for approval. Festival Pass & QR Code will be activated automatically once approved.</p>
           </div>
-          <Link href="/dashboard/profile" className="ml-auto text-xs text-amber-300 underline shrink-0">Upload ID</Link>
-        </div>
-      );
-    }
-    if (user.verification_status === 'rejected') {
-      return (
-        <div className="mb-6 flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
-          <AlertTriangle size={18} className="text-red-400 shrink-0" />
-          <p className="text-red-300 text-sm">Your ID verification was rejected. Please re-upload a valid ID card.</p>
-          <Link href="/dashboard/profile" className="ml-auto text-xs text-red-300 underline shrink-0">Re-upload</Link>
-        </div>
-      );
-    }
-    if (!user.platform_fee_paid && !user.is_amrita_student) {
-      return (
-        <div className="mb-6 flex items-center gap-3 bg-purple-500/10 border border-purple-500/30 rounded-xl px-4 py-3">
-          <CreditCard size={18} className="text-purple-400 shrink-0" />
-          <div>
-            <p className="text-purple-300 font-medium text-sm">Complete Platform Registration</p>
-            <p className="text-purple-400/70 text-xs mt-0.5">Pay the one-time ₹99 platform fee to register for events.</p>
-          </div>
-          <Link href="/dashboard/payment"
-            className="ml-auto bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-all">
-            Pay Now
-          </Link>
+          <span className="ml-auto text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full font-semibold shrink-0">Waiting for Approval</span>
         </div>
       );
     }
@@ -155,7 +132,7 @@ export default function DashboardPage() {
                   <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
                     <AlertTriangle size={24} className="text-amber-400" />
                   </div>
-                  <p className="text-slate-400 text-sm">QR pass will be available once your account is verified.</p>
+                  <p className="text-slate-400 text-sm">QR pass will be available once your account is verified. Waiting for approval.</p>
                 </div>
               )}
             </div>

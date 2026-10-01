@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FEST_CONFIG } from '../../data/festData';
 import { ArrowRight, Calendar, MapPin, Trophy, Ticket, Flame, Building2, Sparkles } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export const Hero = () => {
+  const { user } = useAuth();
   // Countdown Timer state to Oct 16, 2026
   const [timeLeft, setTimeLeft] = useState({ days: 16, hours: 14, minutes: 22, seconds: 45 });
 
@@ -18,6 +20,16 @@ export const Hero = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const passHref = user
+    ? user.role === 'student'
+      ? '/dashboard/pass'
+      : user.role === 'super_admin'
+      ? '/superadmin'
+      : `/admin/${user.club_slug || ''}`
+    : '/auth/register';
+
+  const passButtonLabel = user ? 'SEE DELEGATE PASS' : 'GET DELEGATE PASS';
 
   return (
     <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 border-b border-purple-900/50 overflow-hidden fest-grid-bg bg-[#05030a]">
@@ -76,11 +88,11 @@ export const Hero = () => {
             {/* Action CTAs */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-3">
               <Link
-                href="/register"
+                href={passHref}
                 className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-purple-600 to-fuchsia-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-sm sm:text-base tracking-wide shadow-purple-glow flex items-center justify-center gap-3 transition-all active:scale-95 border border-fuchsia-400/40 text-center"
               >
                 <Ticket className="w-5 h-5 text-amber-300" />
-                <span>GET DELEGATE PASS</span>
+                <span>{passButtonLabel}</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 

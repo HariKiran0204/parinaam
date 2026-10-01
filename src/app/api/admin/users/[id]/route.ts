@@ -19,18 +19,29 @@ export async function PATCH(
       return error('Status must be verified or rejected');
     }
 
+    if (status === 'rejected') {
+      // Purge/delete rejected unverified student record so they are completely removed
+      await db.query(`DELETE FROM attendance WHERE user_id = $1 OR scanned_by = $1`, [id]);
+      await db.query(`DELETE FROM registrations WHERE user_id = $1`, [id]);
+      await db.query(`DELETE FROM payments WHERE user_id = $1`, [id]);
+      await db.query(`DELETE FROM users WHERE id = $1`, [id]);
+      return success({ message: 'User rejected and record removed successfully', deleted: true });
+    }
+
+    // Approved / Verified: Activate status, platform_fee_paid, and ensure QR token is set
     await db.query(
       `UPDATE users
-       SET verification_status = $1,
-           verification_note   = $2,
-           platform_fee_paid   = CASE WHEN $1 = 'verified' THEN TRUE ELSE platform_fee_paid END,
+       SET verification_status = 'verified',
+           verification_note   = $1,
+           platform_fee_paid   = TRUE,
            verified_at         = NOW(),
-           verified_by         = $3
-       WHERE id = $4`,
-      [status, note || null, session.userId, id]
+           verified_by         = $2,
+           qr_token            = COALESCE(NULLIF(qr_token, ''), encode(gen_random_bytes(20), 'hex'))
+       WHERE id = $3`,
+      [note || null, session.userId, id]
     );
 
-    return success({ message: `User ${status} successfully` });
+    return success({ message: 'User approved and QR pass activated successfully' });
   } catch (err) {
     console.error('Verify user error:', err);
     return serverError();
@@ -121,7 +132,9 @@ export async function DELETE(
     }
 
     // Cascade cleanup
-    await db.query(`DELETE FROM attendance WHERE user_id = $1`, [id]);
+    await db.query(`UPDATE events SET created_by = $1 WHERE created_by = $2`, [session.userId, id]);
+    await db.query(`UPDATE users SET verified_by = NULL WHERE verified_by = $1`, [id]);
+    await db.query(`DELETE FROM attendance WHERE user_id = $1 OR scanned_by = $1`, [id]);
     await db.query(`DELETE FROM registrations WHERE user_id = $1`, [id]);
     await db.query(`DELETE FROM payments WHERE user_id = $1`, [id]);
     await db.query(`DELETE FROM users WHERE id = $1`, [id]);

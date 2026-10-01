@@ -140,29 +140,6 @@ const USERS_DATA: MockUser[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   })),
-  // Sample student account
-  {
-    id: 'usr-demo-student',
-    email: 'student@av.students.amrita.edu',
-    password_hash: ADMIN_PASSWORD_HASH,
-    full_name: 'Aravind Kumar',
-    phone: '+91 9876543210',
-    role: 'student',
-    club_id: null,
-    college_name: 'Amrita Vishwa Vidyapeetham, Amaravati',
-    is_amrita_student: true,
-    roll_number: 'AV.SC.U4CSE22001',
-    department: 'Computer Science and Engineering',
-    year_of_study: '3rd Year',
-    city: 'Amaravati',
-    verification_status: 'verified',
-    platform_fee_paid: true,
-    qr_token: 'qr-student-demo-token-001',
-    pass_type: 'DELEGATE PASS',
-    email_verified: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
 ];
 
 // Initial starter events (empty so club admins add real events)
@@ -401,6 +378,25 @@ class MockDbEngine {
       return { rows: [{ total: totalPaise.toString() }], rowCount: 1 };
     }
 
+    // 10b. ADMIN USER STATS
+    if (qLower.includes('amrita_count') || qLower.includes('external_count')) {
+      const students = this.users.filter(u => u.role === 'student');
+      const amrita = students.filter(u => u.is_amrita_student).length;
+      const external = students.filter(u => !u.is_amrita_student).length;
+      const pending = students.filter(u => u.verification_status === 'pending').length;
+      const verified = students.filter(u => u.verification_status === 'verified').length;
+      return {
+        rows: [{
+          total: students.length.toString(),
+          amrita_count: amrita.toString(),
+          external_count: external.toString(),
+          pending_count: pending.toString(),
+          verified_count: verified.toString(),
+        }],
+        rowCount: 1,
+      };
+    }
+
     if (qLower.includes('count(*)') || qLower.includes('count(u.id)')) {
       if (qLower.includes('from users')) {
         const count = qLower.includes("role = 'student'")
@@ -459,22 +455,27 @@ class MockDbEngine {
     }
 
     // 13. ADMIN USERS LIST
-    if (qLower.includes('from users u left join clubs c')) {
-      const rows = this.users.map(u => {
+    if (qLower.includes('from users u left join clubs c') || qLower.includes('from users u')) {
+      let filtered = [...this.users];
+      const rows = filtered.map(u => {
         const club = this.clubs.find(c => c.id === u.club_id);
         return {
           id: u.id,
           full_name: u.full_name,
           email: u.email,
-          phone: u.phone,
+          phone: u.phone || '',
           role: u.role,
-          college_name: u.college_name,
+          college_name: u.college_name || (u.is_amrita_student ? 'Amrita Vishwa Vidyapeetham, Amaravati' : 'External College'),
           is_amrita_student: u.is_amrita_student,
-          roll_number: u.roll_number,
+          roll_number: u.roll_number || '',
+          department: u.department || '',
+          year_of_study: u.year_of_study || '',
+          city: u.city || '',
           verification_status: u.verification_status,
+          verification_note: u.verification_note || '',
           platform_fee_paid: u.platform_fee_paid,
-          id_card_url: u.id_card_url,
-          created_at: u.created_at,
+          id_card_url: u.id_card_url || '',
+          created_at: u.created_at || new Date().toISOString(),
           club_name: club?.name || null,
           confirmed_registrations: '0',
         };
@@ -482,29 +483,47 @@ class MockDbEngine {
       return { rows, rowCount: rows.length };
     }
 
-    // 14. UPDATE USERS
-    if (qLower.startsWith('update users set')) {
-      if (qLower.includes('verification_status =')) {
-        const status = params[0];
-        const reason = params[1];
-        const userId = params[2];
-        const target = this.users.find(u => u.id === userId);
-        if (target) {
-          target.verification_status = status;
-          target.verification_note = reason || '';
-          return { rows: [target], rowCount: 1 };
-        }
+    // 14. DELETE FROM USERS
+    if (qLower.startsWith('delete from users')) {
+      const id = params[0]?.toString();
+      const idx = this.users.findIndex(u => u.id === id);
+      if (idx !== -1) {
+        this.users.splice(idx, 1);
+        this.registrations = this.registrations.filter(r => r.user_id !== id);
+        this.attendance = this.attendance.filter(a => a.user_id !== id);
+        this.payments = this.payments.filter(p => p.user_id !== id);
+        return { rows: [], rowCount: 1 };
       }
-      if (qLower.includes('role =')) {
-        const role = params[0];
-        const clubId = params[1];
-        const userId = params[2];
-        const target = this.users.find(u => u.id === userId);
-        if (target) {
-          target.role = role;
-          target.club_id = clubId || null;
-          return { rows: [target], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    }
+
+    // 15. DELETE FROM OTHER TABLES
+    if (qLower.startsWith('delete from registrations')) {
+      const id = params[0]?.toString();
+      this.registrations = this.registrations.filter(r => r.user_id !== id && r.id !== id);
+      return { rows: [], rowCount: 1 };
+    }
+    if (qLower.startsWith('delete from attendance')) {
+      const id = params[0]?.toString();
+      this.attendance = this.attendance.filter(a => a.user_id !== id && a.id !== id);
+      return { rows: [], rowCount: 1 };
+    }
+    if (qLower.startsWith('delete from payments')) {
+      const id = params[0]?.toString();
+      this.payments = this.payments.filter(p => p.user_id !== id && p.id !== id);
+      return { rows: [], rowCount: 1 };
+    }
+
+    // 16. UPDATE USERS
+    if (qLower.startsWith('update users set') || qLower.startsWith('update users')) {
+      const target = this.users.find(u => u.id === params[params.length - 1] || u.id === params[0]);
+      if (target) {
+        if (qLower.includes('verification_status =')) {
+          target.verification_status = params[0] || target.verification_status;
+          target.verification_note = params[1] || '';
+          if (params[0] === 'verified') target.platform_fee_paid = true;
         }
+        return { rows: [target], rowCount: 1 };
       }
     }
 

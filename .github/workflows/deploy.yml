@@ -1,0 +1,55 @@
+name: Parinaam 2026 CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to AWS EC2 (parinaam.online)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📡 Deploy Latest Code to AWS EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST || '13.63.149.152' }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          script_stop: true
+          command_timeout: 20m
+          script: |
+            echo "🚀 [CI/CD] Starting automated deployment on EC2..."
+            
+            # Navigate to production directory
+            cd /var/www/parinaam || exit 1
+            
+            # Pull latest changes from GitHub main
+            echo "📥 [CI/CD] Pulling latest code from GitHub main..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Install any new dependencies
+            echo "📦 [CI/CD] Installing dependencies..."
+            npm install --production=false
+            
+            # Build production Next.js bundle
+            echo "🏗️ [CI/CD] Building Next.js application..."
+            npm run build
+            
+            # Zero-downtime PM2 restart
+            echo "🔄 [CI/CD] Reloading PM2 process..."
+            if npx pm2 describe parinaam-web > /dev/null 2>&1; then
+              npx pm2 restart parinaam-web --update-env
+            else
+              npx pm2 start npm --name "parinaam-web" -- start
+              npx pm2 save
+            fi
+            
+            echo "✨ [CI/CD] Deployment to https://parinaam.online completed successfully!"

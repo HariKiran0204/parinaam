@@ -3,23 +3,24 @@ import { mockDb } from './mockStore';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('rds.amazonaws.com')
+    ? { rejectUnauthorized: false }
+    : process.env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: false }
+    : false,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 1500, // Quick timeout before fallback
+  connectionTimeoutMillis: 10000,
 });
 
-let postgresAvailable = true;
-
 pool.on('error', (err) => {
-  postgresAvailable = false;
-  console.warn('PostgreSQL idle client notice (falling back to mock in-memory DB if disconnected):', err.message);
+  console.warn('PostgreSQL pool error notice:', err.message);
 });
 
 export const db = {
   query: async (text: string, params?: unknown[]): Promise<{ rows: any[]; rowCount: number }> => {
-    // If PostgreSQL URL is configured and working, attempt live query
-    if (process.env.DATABASE_URL && postgresAvailable) {
+    // If PostgreSQL URL is configured, attempt live query
+    if (process.env.DATABASE_URL) {
       try {
         const start = Date.now();
         const res = await pool.query(text, params as any[]);
@@ -27,14 +28,13 @@ export const db = {
         if (process.env.NODE_ENV === 'development') {
           console.log('Executed live PostgreSQL query', { text: text.slice(0, 60), duration, rows: res.rowCount });
         }
-        return { rows: res.rows, rowCount: res.rowCount ?? res.rows.length };
+        return { rows: res.rows || [], rowCount: res.rowCount ?? (res.rows ? res.rows.length : 0) };
       } catch (err: any) {
-        console.warn(`[DB notice] PostgreSQL query error (${err.message}). Using built-in store.`);
-        postgresAvailable = false;
+        console.warn(`[DB notice] PostgreSQL query error (${err.message}). Using local store.`);
       }
     }
 
-    // Fallback in-memory database
+    // In-memory database store
     const start = Date.now();
     const res = await mockDb.executeQuery(text, (params || []) as any[]);
     const duration = Date.now() - start;

@@ -50,6 +50,7 @@ export interface RegisterData {
   department?: string;
   year_of_study?: string;
   city?: string;
+  id_card_url?: string;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
