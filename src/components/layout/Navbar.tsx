@@ -52,7 +52,7 @@ export const Navbar = () => {
         { name: 'EVENTS', href: '/events' },
         { name: 'PRONITES', href: '/pronites' },
         { name: 'GALLERY', href: '/#gallery' },
-        { name: 'SPONSORS', href: '/#sponsors' },
+        { name: 'SPONSORS', href: '/sponsor' },
       ];
 
   const dashboardHref =
