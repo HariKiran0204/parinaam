@@ -13,73 +13,71 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  Award,
-  Users,
-  Trophy,
+  CreditCard,
+  Lock,
   Download,
   HelpCircle,
   Clock,
   MapPin,
-  Briefcase
+  Briefcase,
+  AlertCircle
 } from 'lucide-react';
 
-const SPONSOR_TIERS = [
+const SPONSOR_PACKAGES = [
   {
-    id: 'title',
-    name: 'Title Sponsor',
+    id: 'associate',
+    tierName: 'ASSOCIATE PARTNER',
+    amount: '₹1,00,000+',
+    amountNumber: 100000,
+    badge: 'BRAND PARTNER',
+    color: 'from-amber-700/80 to-red-900/80',
+    borderColor: 'border-amber-700/50',
+    accentColor: 'text-amber-300',
+    ringColor: 'ring-amber-600/40',
+    perks: [
+      'Logo on standees & banners across all 12 events',
+      'Branding at 2–3 club events of your choice',
+      'Shout-out on Instagram & LinkedIn posts',
+      'Logo on participant digital certificates',
+      'Mention during event announcements',
+    ],
+  },
+  {
+    id: 'co_sponsor',
+    tierName: 'CO-SPONSOR',
+    amount: '₹2,50,000+',
+    amountNumber: 250000,
+    badge: 'CO-SPONSOR',
+    color: 'from-red-900/90 to-amber-900/90',
+    borderColor: 'border-red-600/50',
+    accentColor: 'text-rose-300',
+    ringColor: 'ring-rose-500/50',
+    perks: [
+      'Everything in Associate Partner, plus:',
+      'Logo on the main stage backdrop',
+      'On-campus stall / booth space, all 3 days',
+      'Branding across all 12 events + DJ Night',
+      'Dedicated social media feature post',
+      'Mention at prize distribution ceremonies',
+    ],
+  },
+  {
+    id: 'title_sponsor',
+    tierName: 'TITLE SPONSOR',
     amount: '₹5,00,000+',
-    color: 'from-amber-400 to-yellow-500',
-    borderColor: 'border-amber-500/40',
-    badge: 'EXCLUSIVE (1 SLOTS)',
+    amountNumber: 500000,
+    badge: 'TITLE PARTNER',
+    color: 'from-amber-600/80 to-yellow-600/80',
+    borderColor: 'border-amber-400/60',
+    accentColor: 'text-amber-400',
+    ringColor: 'ring-amber-400/50',
     perks: [
-      'Top-tier naming: "PARINAAM 2026 presented by [Brand]"',
-      'Keynote speech during Grand Inauguration & Valedictory',
-      'Mega central exhibition stall (20x20 ft) in Innovation Hub',
-      'Brand logo on all 4,000+ delegate smart QR passes & lanyards',
-      'Full recruitment access & verified participant resume book',
-    ],
-  },
-  {
-    id: 'powered_by',
-    name: 'Powered By Partner',
-    amount: '₹2,50,000',
-    color: 'from-purple-400 to-indigo-500',
-    borderColor: 'border-purple-500/40',
-    badge: 'POPULAR (2 SLOTS)',
-    perks: [
-      'Prominent co-branding across all digital & on-campus posters',
-      'Hackathon or Flagship Coding Track problem statement naming',
-      'Prime exhibition stall (15x15 ft) for live demos',
-      'Social media shoutouts across 20k+ student impressions',
-      'Direct interaction with shortlisted tech finalists',
-    ],
-  },
-  {
-    id: 'gold',
-    name: 'Gold Sponsor',
-    amount: '₹1,00,000',
-    color: 'from-cyan-400 to-blue-500',
-    borderColor: 'border-cyan-500/40',
-    badge: 'HIGH IMPACT',
-    perks: [
-      'Official logo on festival mainstage LED screen rotations',
-      'Promotional flyer / merchandise included in attendee kit',
-      'Dedicated exhibition booth (10x10 ft)',
-      'Logo on official Parinaam website & social collaterals',
-    ],
-  },
-  {
-    id: 'category',
-    name: 'Category / In-Kind Partner',
-    amount: '₹25,000 - ₹50,000',
-    color: 'from-emerald-400 to-teal-500',
-    borderColor: 'border-emerald-500/40',
-    badge: 'FLEXIBLE',
-    perks: [
-      'Exclusive sponsorship of individual club events or Pronite',
-      'Cloud credits, developer tools, or food/beverage distribution',
-      'Logo display on specific club banners & event certificates',
-      'Brand acknowledgement in post-event press releases',
+      'Everything in Co-Sponsor, plus:',
+      '"Presented by [Brand]" naming rights',
+      'Logo on the DJ Night stage — peak footfall',
+      'Premium booth placement, all 3 days',
+      'Brand activation / speaking slot',
+      'Logo on all print, digital & ID-card collateral',
     ],
   },
 ];
@@ -116,7 +114,7 @@ export default function SponsorRegistrationPage() {
     email: '',
     phone: '',
     website: '',
-    tier: 'powered_by',
+    tier: 'co_sponsor',
     budget: '',
     message: '',
   });
@@ -124,6 +122,9 @@ export default function SponsorRegistrationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState('');
+
+  const selectedPackage =
+    SPONSOR_PACKAGES.find((pkg) => pkg.id === formData.tier) || SPONSOR_PACKAGES[1];
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -140,14 +141,14 @@ export default function SponsorRegistrationPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Mock processing delay for realistic UX
+    // Realistic mock submission
     setTimeout(() => {
       const generatedId = `PAR-SPON-${Math.floor(100000 + Math.random() * 900000)}`;
       setSubmissionId(generatedId);
       setIsSubmitting(false);
       setIsSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 700);
+    }, 600);
   };
 
   const resetForm = () => {
@@ -159,7 +160,7 @@ export default function SponsorRegistrationPage() {
       email: '',
       phone: '',
       website: '',
-      tier: 'powered_by',
+      tier: 'co_sponsor',
       budget: '',
       message: '',
     });
@@ -168,76 +169,42 @@ export default function SponsorRegistrationPage() {
   return (
     <div className="min-h-screen bg-[#05030a] text-slate-100 pt-28 pb-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background Ambient Glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute top-3/4 right-10 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-red-950/20 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute top-2/3 right-10 w-[450px] h-[450px] bg-amber-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-      <div className="max-w-6xl mx-auto space-y-16 relative z-10">
-        {/* Breadcrumb / Top Bar */}
+      <div className="max-w-6xl mx-auto space-y-14 relative z-10">
+        {/* Breadcrumb Navigation */}
         <div className="flex items-center justify-between text-xs font-mono text-slate-400 border-b border-white/10 pb-4">
           <div className="flex items-center gap-2">
-            <Link href="/" className="hover:text-purple-400 transition-colors">
+            <Link href="/" className="hover:text-amber-400 transition-colors">
               HOME
             </Link>
             <span>/</span>
-            <span className="text-purple-400 font-semibold">SPONSOR PORTAL</span>
+            <span className="text-amber-400 font-semibold">THE PACKAGES</span>
           </div>
-          <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full">
-            PARINAAM 2026 PARTNERSHIP
+          <span className="bg-red-900/30 text-amber-300 border border-amber-600/30 px-3 py-0.5 rounded-full font-semibold">
+            PARINAAM 2026 SPONSORSHIP
           </span>
         </div>
 
-        {/* Hero Section */}
+        {/* Section Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-purple-300">
-            <Sparkles size={14} className="text-purple-400" />
-            Connect with 4,000+ Future Tech Leaders
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-amber-300">
+            <Sparkles size={14} className="text-amber-400" />
+            THE PACKAGES
           </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
-            Partner with <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">PARINAAM 2026</span>
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
+            Choose Your{' '}
+            <span className="bg-gradient-to-r from-amber-400 via-rose-400 to-amber-200 bg-clip-text text-transparent">
+              Level of Partnership
+            </span>
           </h1>
-          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-            Elevate your brand at Amrita Vishwa Vidyapeetham&apos;s premier national technical &amp; cultural festival. 
-            Showcase your technologies, scout top engineering talent, and engage with visionary students across 35+ national events.
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+            Three ways to partner with PARINAAM 2026, from focused club branding to full title-sponsor visibility.
           </p>
-
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 text-left">
-            <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-              <div className="flex items-center gap-2 text-purple-400 mb-1">
-                <Users size={18} />
-                <span className="text-xs font-mono">ATTENDEES</span>
-              </div>
-              <p className="text-2xl font-bold text-white">4,000+</p>
-              <p className="text-xs text-slate-400">National footfall</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-              <div className="flex items-center gap-2 text-pink-400 mb-1">
-                <Trophy size={18} />
-                <span className="text-xs font-mono">FLAGSHIPS</span>
-              </div>
-              <p className="text-2xl font-bold text-white">35+ Events</p>
-              <p className="text-xs text-slate-400">Hackathons, CTF &amp; Wars</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-              <div className="flex items-center gap-2 text-cyan-400 mb-1">
-                <Building2 size={18} />
-                <span className="text-xs font-mono">CLUBS</span>
-              </div>
-              <p className="text-2xl font-bold text-white">12 Domains</p>
-              <p className="text-xs text-slate-400">AI, Cyber, Cloud &amp; Arts</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
-              <div className="flex items-center gap-2 text-amber-400 mb-1">
-                <Award size={18} />
-                <span className="text-xs font-mono">PRIZE POOL</span>
-              </div>
-              <p className="text-2xl font-bold text-white">₹5 Lakhs+</p>
-              <p className="text-xs text-slate-400">Cash &amp; grants</p>
-            </div>
-          </div>
         </div>
 
-        {/* Success View */}
+        {/* Success Confirmation View */}
         {isSubmitted ? (
           <div className="bg-white/5 border border-emerald-500/30 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 shadow-2xl backdrop-blur-md">
             <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
@@ -245,23 +212,23 @@ export default function SponsorRegistrationPage() {
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                Sponsorship Request Received!
+                Sponsorship Registration Received!
               </h2>
               <p className="text-sm text-slate-300">
                 Thank you, <span className="font-semibold text-white">{formData.contactPerson || 'Partner'}</span>. 
-                Your registration for <span className="font-semibold text-purple-300">{formData.companyName}</span> has been logged into our corporate desk.
+                Your registration for <span className="font-semibold text-amber-300">{formData.companyName}</span> has been logged.
               </p>
             </div>
 
-            <div className="bg-black/40 border border-white/10 rounded-xl p-4 text-left font-mono text-xs space-y-2 text-slate-300">
+            <div className="bg-black/50 border border-white/10 rounded-xl p-4 text-left font-mono text-xs space-y-2.5 text-slate-300">
               <div className="flex justify-between border-b border-white/5 pb-1.5">
                 <span className="text-slate-500">REFERENCE ID:</span>
                 <span className="text-emerald-400 font-bold">{submissionId}</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-1.5">
-                <span className="text-slate-500">SELECTED TIER:</span>
-                <span className="text-white uppercase">
-                  {SPONSOR_TIERS.find((t) => t.id === formData.tier)?.name || formData.tier}
+                <span className="text-slate-500">CHOSEN PACKAGE:</span>
+                <span className="text-amber-400 font-bold">
+                  {selectedPackage.tierName} ({selectedPackage.amount})
                 </span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-1.5">
@@ -274,24 +241,44 @@ export default function SponsorRegistrationPage() {
               </div>
             </div>
 
-            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-xs text-purple-200 text-left flex items-start gap-3">
-              <Clock size={16} className="text-purple-400 shrink-0 mt-0.5" />
+            {/* Display-Only Payment Section in Success View */}
+            <div className="bg-white/5 border border-amber-500/30 rounded-xl p-5 text-left space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-mono font-bold">
+                  <CreditCard size={16} />
+                  <span>PAYMENT &amp; INVOICING (PREVIEW ONLY)</span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  DISPLAY ONLY
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Package Amount: <strong className="text-white">{selectedPackage.amount}</strong> + applicable university GST receipts.
+              </p>
+              <div className="p-3 bg-black/40 rounded-lg text-xs text-slate-400 border border-white/5 flex items-center justify-between">
+                <span>Payment Gateway Integration:</span>
+                <span className="text-amber-300 font-mono text-[11px]">Integration will be added later</span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 text-left flex items-start gap-3">
+              <Clock size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-white mb-0.5">Next Steps &amp; MoU Timeline</p>
-                Our Head of Corporate Relations will contact you within <strong>24 business hours</strong> with the formal festival proposal deck, tier deliverables, and tax invoice / MoU guidelines.
+                <p className="font-semibold text-white mb-0.5">MoU &amp; Onboarding</p>
+                Our Corporate Relations team will reach out within <strong>24 business hours</strong> with the formal festival proposal deck, tax invoice guidelines, and MoU agreement.
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <button
                 onClick={resetForm}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-lg border border-white/20 text-sm font-medium hover:bg-white/5 transition-colors"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg border border-white/20 text-sm font-medium hover:bg-white/5 transition-colors cursor-pointer"
               >
-                Submit Another Request
+                Register Another Package
               </button>
               <Link
                 href="/"
-                className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 text-white text-sm font-medium hover:opacity-90 transition-opacity"
               >
                 Return to Fest Home
               </Link>
@@ -299,93 +286,103 @@ export default function SponsorRegistrationPage() {
           </div>
         ) : (
           <>
-            {/* Tiers Grid */}
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Sponsorship Tiers &amp; Benefits</h2>
-                  <p className="text-xs sm:text-sm text-slate-400">
-                    Choose a tier that aligns with your company&apos;s visibility and recruitment targets.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-mono text-purple-400 bg-purple-500/10 px-3 py-1.5 rounded-lg border border-purple-500/20 w-fit">
-                  <ShieldCheck size={14} />
-                  Amrita Tax Exemption &amp; Official Invoicing Available
-                </div>
-              </div>
+            {/* 3 Packages Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {SPONSOR_PACKAGES.map((pkg) => {
+                const isSelected = formData.tier === pkg.id;
+                return (
+                  <div
+                    key={pkg.id}
+                    onClick={() => handleSelectTier(pkg.id)}
+                    className={`cursor-pointer rounded-2xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between relative bg-white/5 border ${
+                      isSelected
+                        ? `${pkg.borderColor} ring-2 ${pkg.ringColor} bg-white/[0.08] shadow-2xl`
+                        : 'border-white/10 hover:border-white/25 hover:bg-white/[0.07]'
+                    }`}
+                  >
+                    {/* Header Badge */}
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-[10px] font-mono tracking-wider px-2.5 py-0.5 rounded bg-black/40 text-amber-200 border border-white/10 uppercase">
+                        {pkg.badge}
+                      </span>
+                      {isSelected ? (
+                        <span className="text-xs font-mono text-emerald-400 flex items-center gap-1 font-bold">
+                          <CheckCircle2 size={14} /> SELECTED
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-mono text-slate-500">
+                          Click to select
+                        </span>
+                      )}
+                    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                {SPONSOR_TIERS.map((tier) => {
-                  const isSelected = formData.tier === tier.id;
-                  return (
-                    <div
-                      key={tier.id}
-                      onClick={() => handleSelectTier(tier.id)}
-                      className={`cursor-pointer rounded-2xl p-6 transition-all duration-300 flex flex-col justify-between relative bg-white/5 border ${
+                    {/* Tier Name & Amount */}
+                    <div className="space-y-1 mb-6 border-b border-white/10 pb-4">
+                      <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-wide">
+                        {pkg.tierName}
+                      </h3>
+                      <p className={`text-2xl sm:text-3xl font-black ${pkg.accentColor}`}>
+                        {pkg.amount}
+                      </p>
+                    </div>
+
+                    {/* Perks List */}
+                    <ul className="space-y-3 text-xs sm:text-sm text-slate-300 mb-8 flex-1">
+                      {pkg.perks.map((perk, idx) => (
+                        <li key={idx} className="flex items-start gap-2.5">
+                          <span className="text-amber-400 font-bold shrink-0 mt-0.5">•</span>
+                          <span className={perk.includes('Everything in') ? 'font-semibold text-white' : ''}>
+                            {perk}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Select Action */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectTier(pkg.id);
+                      }}
+                      className={`w-full py-2.5 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all cursor-pointer ${
                         isSelected
-                          ? `${tier.borderColor} ring-2 ring-purple-500/50 bg-white/[0.08]`
-                          : 'border-white/10 hover:border-white/25 hover:bg-white/[0.07]'
+                          ? 'bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-lg shadow-amber-900/40'
+                          : 'bg-white/10 hover:bg-white/20 text-slate-200'
                       }`}
                     >
-                      {/* Top Badge */}
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] font-mono tracking-wider px-2 py-0.5 rounded bg-white/10 text-slate-300">
-                          {tier.badge}
-                        </span>
-                        {isSelected && (
-                          <span className="text-xs font-mono text-emerald-400 flex items-center gap-1">
-                            <CheckCircle2 size={13} /> SELECTED
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="space-y-2 mb-6">
-                        <h3 className="text-lg font-bold text-white">{tier.name}</h3>
-                        <p className={`text-xl font-extrabold bg-gradient-to-r ${tier.color} bg-clip-text text-transparent`}>
-                          {tier.amount}
-                        </p>
-                      </div>
-
-                      <ul className="space-y-2.5 text-xs text-slate-300 mb-6 flex-1">
-                        {tier.perks.map((perk, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-purple-400 font-bold shrink-0">✓</span>
-                            <span>{perk}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectTier(tier.id);
-                        }}
-                        className={`w-full py-2 rounded-lg text-xs font-mono font-semibold transition-all ${
-                          isSelected
-                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                            : 'bg-white/10 hover:bg-white/20 text-slate-200'
-                        }`}
-                      >
-                        {isSelected ? 'TIER SELECTED' : 'CHOOSE TIER'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+                      {isSelected ? '✓ SELECTED PACKAGE' : 'SELECT THIS PACKAGE'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Registration Form & Contact Side-by-Side */}
+            {/* Bottom Banner Quote */}
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-950/40 via-red-950/30 to-black/60 border border-amber-600/30 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <Sparkles size={24} />
+              </div>
+              <p className="text-sm sm:text-base text-slate-200 leading-relaxed font-medium">
+                Partner with <strong>PARINAAM 2026</strong> and connect your brand with <em>technology, creativity, automobiles, competitions and entertainment</em>.
+              </p>
+            </div>
+
+            {/* Registration Form & Corporate Desk */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Form Card (8 cols) */}
-              <div className="lg:col-span-8 bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-md shadow-2xl">
-                <div className="border-b border-white/10 pb-4 mb-6">
-                  <span className="text-xs font-mono text-purple-400 font-bold tracking-wider uppercase block">
-                    STEP 2: CORPORATE DETAILS
+              <div className="lg:col-span-8 bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-md shadow-2xl space-y-6">
+                <div className="border-b border-white/10 pb-4">
+                  <span className="text-xs font-mono text-amber-400 font-bold tracking-wider uppercase block">
+                    SPONSOR REGISTRATION FORM
                   </span>
-                  <h3 className="text-xl font-bold text-white mt-1">Register as an Official Sponsor</h3>
+                  <h3 className="text-xl font-bold text-white mt-1">
+                    Register Your Company as a Sponsor
+                  </h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Fill out your brand information. Our corporate team will reach out with the agreement and custom deliverables.
+                    Selected package:{' '}
+                    <strong className="text-amber-300">{selectedPackage.tierName} ({selectedPackage.amount})</strong>. 
+                    Fill in your details below.
                   </p>
                 </div>
 
@@ -404,13 +401,13 @@ export default function SponsorRegistrationPage() {
                           required
                           value={formData.companyName}
                           onChange={handleInputChange}
-                          placeholder="e.g. Google Cloud, Razorpay, Red Bull"
-                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                          placeholder="e.g. Acme Corp / Red Bull"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                         />
                       </div>
                     </div>
 
-                    {/* Representative Name */}
+                    {/* Contact Person */}
                     <div>
                       <label className="block text-xs font-mono text-slate-300 mb-1.5">
                         CONTACT PERSON NAME *
@@ -423,8 +420,8 @@ export default function SponsorRegistrationPage() {
                           required
                           value={formData.contactPerson}
                           onChange={handleInputChange}
-                          placeholder="e.g. John Doe / Lead HR"
-                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                          placeholder="e.g. John Doe / Partnerships Lead"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                         />
                       </div>
                     </div>
@@ -434,7 +431,7 @@ export default function SponsorRegistrationPage() {
                     {/* Work Email */}
                     <div>
                       <label className="block text-xs font-mono text-slate-300 mb-1.5">
-                        OFFICIAL WORK EMAIL *
+                        OFFICIAL EMAIL *
                       </label>
                       <div className="relative">
                         <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -444,8 +441,8 @@ export default function SponsorRegistrationPage() {
                           required
                           value={formData.email}
                           onChange={handleInputChange}
-                          placeholder="partner@company.com"
-                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                          placeholder="sponsor@company.com"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                         />
                       </div>
                     </div>
@@ -464,7 +461,7 @@ export default function SponsorRegistrationPage() {
                           value={formData.phone}
                           onChange={handleInputChange}
                           placeholder="+91 98765 43210"
-                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                         />
                       </div>
                     </div>
@@ -483,8 +480,8 @@ export default function SponsorRegistrationPage() {
                           name="designation"
                           value={formData.designation}
                           onChange={handleInputChange}
-                          placeholder="e.g. Marketing Director, University Recruiter"
-                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                          placeholder="e.g. Brand Marketing Manager"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                         />
                       </div>
                     </div>
@@ -501,40 +498,37 @@ export default function SponsorRegistrationPage() {
                           name="website"
                           value={formData.website}
                           onChange={handleInputChange}
-                          placeholder="https://company.com"
-                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                          placeholder="https://acme.corp"
+                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {/* Selected Tier Dropdown */}
+                    {/* Package Selector */}
                     <div>
                       <label className="block text-xs font-mono text-slate-300 mb-1.5">
-                        SPONSORSHIP TIER *
+                        CHOSEN PACKAGE *
                       </label>
                       <select
                         name="tier"
                         value={formData.tier}
                         onChange={handleInputChange}
-                        className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                        className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                       >
-                        {SPONSOR_TIERS.map((t) => (
-                          <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                            {t.name} ({t.amount})
+                        {SPONSOR_PACKAGES.map((pkg) => (
+                          <option key={pkg.id} value={pkg.id} className="bg-slate-900 text-white">
+                            {pkg.tierName} ({pkg.amount})
                           </option>
                         ))}
-                        <option value="custom" className="bg-slate-900 text-white">
-                          Custom Partnership / In-Kind
-                        </option>
                       </select>
                     </div>
 
-                    {/* Budget / Contribution Estimate */}
+                    {/* Custom Budget Notes */}
                     <div>
                       <label className="block text-xs font-mono text-slate-300 mb-1.5">
-                        ESTIMATED BUDGET / SUPPORT MODE
+                        BUDGET OR IN-KIND DETAILS
                       </label>
                       <div className="relative">
                         <DollarSign size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -543,33 +537,84 @@ export default function SponsorRegistrationPage() {
                           name="budget"
                           value={formData.budget}
                           onChange={handleInputChange}
-                          placeholder="e.g. ₹2,00,000 or Swag & Cloud Credits"
-                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
+                          placeholder={`Default: ${selectedPackage.amount} (or custom)`}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Message / Objectives */}
+                  {/* Requirements / Message */}
                   <div>
                     <label className="block text-xs font-mono text-slate-300 mb-1.5">
-                      COLLABORATION OBJECTIVES / SPECIFIC REQUIREMENTS
+                      SPECIAL REQUIREMENTS / PREFERRED CLUB EVENTS
                     </label>
                     <textarea
                       name="message"
                       rows={3}
                       value={formData.message}
                       onChange={handleInputChange}
-                      placeholder="Tell us if you want dedicated booth space, a custom hackathon challenge, or workshop sessions..."
-                      className="w-full bg-black/40 border border-white/15 rounded-xl p-3.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all resize-none"
+                      placeholder="e.g. Preferred club events to sponsor (Chakravyuha coding, Robotics RoboWars, etc.) or booth requirements..."
+                      className="w-full bg-black/40 border border-white/15 rounded-xl p-3.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all resize-none"
                     />
+                  </div>
+
+                  {/* ========================================= */}
+                  {/* PAYMENT SECTION (DISPLAY-ONLY AS REQUESTED) */}
+                  {/* ========================================= */}
+                  <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/20 via-black/40 to-red-950/20 p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                      <div className="flex items-center gap-2">
+                        <CreditCard size={18} className="text-amber-400" />
+                        <span className="text-sm font-bold text-white tracking-wide">
+                          Payment Section
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 w-fit">
+                        Display Only • Integration Pending
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="bg-black/50 p-3 rounded-xl border border-white/5 space-y-1">
+                        <span className="text-slate-500 block font-mono text-[10px]">SELECTED TIER</span>
+                        <span className="font-bold text-white">{selectedPackage.tierName}</span>
+                      </div>
+                      <div className="bg-black/50 p-3 rounded-xl border border-white/5 space-y-1">
+                        <span className="text-slate-500 block font-mono text-[10px]">CONTRIBUTION</span>
+                        <span className="font-extrabold text-amber-400">{selectedPackage.amount}</span>
+                      </div>
+                      <div className="bg-black/50 p-3 rounded-xl border border-white/5 space-y-1">
+                        <span className="text-slate-500 block font-mono text-[10px]">GATEWAY STATUS</span>
+                        <span className="text-slate-300 flex items-center gap-1 font-mono text-[11px]">
+                          <Lock size={12} className="text-amber-400" /> Inactive (Placeholder)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mock Payment Options (Disabled Preview) */}
+                    <div className="p-3.5 bg-black/60 rounded-xl border border-white/5 space-y-2 text-xs text-slate-400">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[11px] text-slate-300">
+                          Supported Gateways (Coming Soon):
+                        </span>
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
+                          <span className="px-2 py-0.5 bg-white/10 rounded">UPI</span>
+                          <span className="px-2 py-0.5 bg-white/10 rounded">Razorpay</span>
+                          <span className="px-2 py-0.5 bg-white/10 rounded">NEFT / RTGS</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                        ℹ️ <em>Note: Payment gateway integration will be added here in the next update. Registering now records your package interest with the sponsorship team.</em>
+                      </p>
+                    </div>
                   </div>
 
                   {/* Submit Button */}
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-bold text-sm tracking-wide shadow-lg shadow-purple-600/30 hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 via-rose-600 to-amber-700 text-white font-bold text-sm tracking-wide shadow-lg shadow-amber-900/30 hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <span className="flex items-center gap-2">
@@ -578,48 +623,48 @@ export default function SponsorRegistrationPage() {
                       </span>
                     ) : (
                       <>
-                        <span>Submit Sponsorship Registration</span>
+                        <span>Register as a Sponsor</span>
                         <ArrowRight size={16} />
                       </>
                     )}
                   </button>
 
                   <p className="text-center text-[11px] text-slate-500 font-mono">
-                    By submitting, you agree to receive official sponsorship communications from the Parinaam 2026 Core Organizing Committee.
+                    Official Amrita Vishwa Vidyapeetham fest partnership protocol.
                   </p>
                 </form>
               </div>
 
-              {/* Contact Info & Help Desk (4 cols) */}
+              {/* Mock Contacts & Help Desk (4 cols) */}
               <div className="lg:col-span-4 space-y-6">
                 {/* Official Contact Card */}
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-5">
-                  <div className="flex items-center gap-2 text-purple-400 font-mono text-xs font-bold tracking-wider uppercase">
+                  <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold tracking-wider uppercase">
                     <Phone size={15} />
                     <span>CORPORATE DESK CONTACTS</span>
                   </div>
 
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Have queries about deliverables, CSR contributions, or custom track sponsorships? Contact our committee directly:
+                    Need custom branding, booth dimensions, or invoice inquiries? Contact our team directly:
                   </p>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3.5">
                     {MOCK_CONTACTS.map((c, i) => (
-                      <div key={i} className="bg-black/30 border border-white/5 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-[10px] font-mono text-purple-300 uppercase block font-semibold">
+                      <div key={i} className="bg-black/40 border border-white/5 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-[10px] font-mono text-amber-300 uppercase block font-semibold">
                           {c.role}
                         </span>
                         <h4 className="text-sm font-bold text-white">{c.name}</h4>
                         <div className="text-xs text-slate-400 space-y-1">
                           <p className="flex items-center gap-2">
                             <Phone size={12} className="text-slate-500" />
-                            <a href={`tel:${c.phone}`} className="hover:text-purple-400 transition-colors">
+                            <a href={`tel:${c.phone}`} className="hover:text-amber-400 transition-colors">
                               {c.phone}
                             </a>
                           </p>
                           <p className="flex items-center gap-2">
                             <Mail size={12} className="text-slate-500" />
-                            <a href={`mailto:${c.email}`} className="hover:text-purple-400 transition-colors">
+                            <a href={`mailto:${c.email}`} className="hover:text-amber-400 transition-colors">
                               {c.email}
                             </a>
                           </p>
@@ -631,7 +676,7 @@ export default function SponsorRegistrationPage() {
                   {/* Campus Address */}
                   <div className="pt-2 border-t border-white/10 text-xs text-slate-400 space-y-1">
                     <p className="flex items-start gap-2">
-                      <MapPin size={14} className="text-purple-400 shrink-0 mt-0.5" />
+                      <MapPin size={14} className="text-amber-400 shrink-0 mt-0.5" />
                       <span>
                         <strong>Amrita Vishwa Vidyapeetham</strong>
                         <br />
@@ -641,45 +686,24 @@ export default function SponsorRegistrationPage() {
                   </div>
                 </div>
 
-                {/* Download Brochure Card */}
-                <div className="bg-gradient-to-br from-purple-900/30 to-indigo-950/40 border border-purple-500/20 rounded-2xl p-6 text-center space-y-3">
-                  <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto text-purple-300">
+                {/* Brochure Card */}
+                <div className="bg-gradient-to-br from-amber-950/30 to-black/60 border border-amber-600/30 rounded-2xl p-6 text-center space-y-3">
+                  <div className="w-10 h-10 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto text-amber-300">
                     <Download size={20} />
                   </div>
-                  <h4 className="text-sm font-bold text-white">Sponsorship Deck 2026</h4>
+                  <h4 className="text-sm font-bold text-white">Download Partnership Deck</h4>
                   <p className="text-xs text-slate-400">
-                    Detailed footfall breakdown, past marquee recruiters, and branding layout map.
+                    Official Parinaam 2026 PDF brochure containing full campus event maps &amp; past sponsors.
                   </p>
-                  <a
-                    href="#download"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert('Sponsorship Brochure (PDF) download request received. The comprehensive PDF deck will be dispatched to your email.');
+                  <button
+                    type="button"
+                    onClick={() => {
+                      alert('Sponsorship Brochure download initiated. The PDF will also be sent to your email.');
                     }}
-                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-mono text-purple-200 border border-white/10 transition-colors"
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-mono text-amber-200 border border-white/10 transition-colors cursor-pointer"
                   >
                     <span>Download Brochure (PDF)</span>
-                  </a>
-                </div>
-
-                {/* Quick FAQ Mini-Box */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3 text-xs text-slate-300">
-                  <div className="flex items-center gap-2 font-bold text-white">
-                    <HelpCircle size={15} className="text-purple-400" />
-                    <span>Frequently Asked Questions</span>
-                  </div>
-                  <div className="space-y-2 text-slate-400">
-                    <p>
-                      <strong className="text-slate-200">Can we host a branded hackathon track?</strong>
-                      <br />
-                      Yes, Title and Powered By partners can sponsor tailored problem statements with designated jury seats.
-                    </p>
-                    <p>
-                      <strong className="text-slate-200">Are student demo booths equipped with power &amp; Wi-Fi?</strong>
-                      <br />
-                      All sponsor booths receive dedicated 1Gbps high-speed Wi-Fi, power outlets, and display furniture.
-                    </p>
-                  </div>
+                  </button>
                 </div>
               </div>
             </div>
