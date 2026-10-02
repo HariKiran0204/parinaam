@@ -486,9 +486,9 @@ class MockDbEngine {
       return { rows, rowCount: rows.length };
     }
 
-    // 10. ADMIN STATS & PAYMENTS
-    if (qLower.includes('sum(amount_paise)') || qLower.includes('from payments')) {
-      const totalPaise = this.payments.reduce((acc, p) => acc + (p.status === 'captured' ? p.amount_paise : 0), 0);
+    // 10. ADMIN STATS REVENUE
+    if (qLower.includes('sum(amount_paise)') || qLower.includes('sum(amount)')) {
+      const totalPaise = this.payments.reduce((acc, p) => acc + (p.status === 'captured' || p.status === 'paid' ? (p.amount || 0) : 0), 0);
       return { rows: [{ total: totalPaise.toString() }], rowCount: 1 };
     }
 
@@ -569,11 +569,15 @@ class MockDbEngine {
       return { rows, rowCount: rows.length };
     }
 
-    // 13. ADMIN USERS LIST
+    // 13. ADMIN USERS LIST & SINGLE USER
     if (qLower.includes('from users u left join clubs c') || qLower.includes('from users u')) {
       let filtered = [...this.users];
+      if (qLower.includes('where u.id =') && params && params[0]) {
+        filtered = filtered.filter(u => u.id === params[0] || u.email === params[0]);
+      }
       const rows = filtered.map(u => {
         const club = this.clubs.find(c => c.id === u.club_id);
+        const confirmedRegs = this.registrations.filter(r => (r.user_id === u.id || r.user_id === u.email) && r.status === 'CONFIRMED').length;
         return {
           id: u.id,
           full_name: u.full_name,
@@ -592,7 +596,7 @@ class MockDbEngine {
           id_card_url: u.id_card_url || '',
           created_at: u.created_at || new Date().toISOString(),
           club_name: club?.name || null,
-          confirmed_registrations: '0',
+          confirmed_registrations: confirmedRegs.toString(),
         };
       });
       return { rows, rowCount: rows.length };

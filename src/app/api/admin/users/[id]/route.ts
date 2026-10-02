@@ -66,9 +66,9 @@ export async function GET(
        LEFT JOIN events e ON r.event_id = e.id
        LEFT JOIN clubs c ON e.club_id = c.id
        LEFT JOIN attendance a ON a.user_id = r.user_id AND a.event_id = r.event_id AND a.status = 'SUCCESS'
-       WHERE r.user_id = $1
+       WHERE r.user_id = $1 OR r.user_id = $2 OR r.user_id IN (SELECT id FROM users WHERE id = $1 OR email = $3)
        ORDER BY r.registered_at DESC`,
-      [id]
+      [user.id, id, user.email]
     );
 
     // 3. Fetch payment audit history
@@ -77,9 +77,9 @@ export async function GET(
         id as payment_id, razorpay_order_id, razorpay_payment_id,
         amount, currency, status, notes, created_at
        FROM payments
-       WHERE user_id = $1
+       WHERE user_id = $1 OR user_id = $2
        ORDER BY created_at DESC`,
-      [id]
+      [user.id, id]
     );
 
     // 4. Fetch attendance audit logs
@@ -91,9 +91,9 @@ export async function GET(
        FROM attendance a
        LEFT JOIN events e ON a.event_id = e.id
        LEFT JOIN users sb ON a.scanned_by = sb.id
-       WHERE a.user_id = $1
+       WHERE a.user_id = $1 OR a.user_id = $2
        ORDER BY a.scanned_at DESC`,
-      [id]
+      [user.id, id]
     );
 
     return success({
