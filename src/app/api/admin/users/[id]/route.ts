@@ -4,6 +4,99 @@ import { getSessionUser } from '@/lib/auth';
 import { success, error, unauthorized, forbidden, serverError } from '@/lib/apiResponse';
 import { isValidEmail, isValidStudentName } from '@/lib/utils';
 
+// GET /api/admin/users/[id] — super admin views complete student details & registration timeline
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const session = await getSessionUser(req);
+    if (!session) return unauthorized();
+    if (session.role !== 'super_admin' && session.role !== 'club_admin') {
+      return forbidden('Administrative privileges required');
+    }
+
+    // 1. Fetch user full profile
+    const userResult = await db.query(
+      `SELECT 
+        u.id, u.email, u.full_name, u.phone, u.role,
+        u.college_name, u.is_amrita_student, u.roll_number,
+        u.department, u.year_of_study, u.city,
+        u.id_card_url, u.verification_status, u.verification_note,
+        u.platform_fee_paid, u.pass_type, u.qr_token, u.email_verified,
+        u.created_at, u.verified_at, u.updated_at,
+        c.name as club_name, c.slug as club_slug,
+        vb.full_name as verified_by_name, vb.email as verified_by_email
+       FROM users u
+       LEFT JOIN clubs c ON u.club_id = c.id
+       LEFT JOIN users vb ON u.verified_by = vb.id
+       WHERE u.id = $1`,
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return error('Student profile not found', 404);
+    }
+
+    const user = userResult.rows[0];
+
+    // 2. Fetch all registered events for this student with timestamps and attendance
+    const registrationsResult = await db.query(
+      `SELECT 
+        r.id as registration_id, r.status as registration_status, r.payment_status,
+        r.amount_paid, r.team_name, r.team_members, r.registered_at, r.confirmed_at,
+        e.id as event_id, e.name as event_name, e.event_code, e.category, e.venue,
+        e.date_start, e.start_time, e.end_time, e.day_number, e.fee as event_fee,
+        e.poster_url,
+        c.id as club_id, c.name as club_name, c.slug as club_slug, c.color as club_color,
+        a.id as attendance_id, a.scanned_at as checked_in_at, a.status as attendance_status
+       FROM registrations r
+       JOIN events e ON r.event_id = e.id
+       JOIN clubs c ON e.club_id = c.id
+       LEFT JOIN attendance a ON a.user_id = r.user_id AND a.event_id = r.event_id AND a.status = 'SUCCESS'
+       WHERE r.user_id = $1
+       ORDER BY r.registered_at DESC`,
+      [id]
+    );
+
+    // 3. Fetch payment audit history
+    const paymentsResult = await db.query(
+      `SELECT 
+        id as payment_id, razorpay_order_id, razorpay_payment_id,
+        amount, currency, status, notes, created_at
+       FROM payments
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [id]
+    );
+
+    // 4. Fetch attendance audit logs
+    const attendanceResult = await db.query(
+      `SELECT 
+        a.id as attendance_id, a.event_id, e.name as event_name,
+        a.scanned_at, a.status,
+        sb.full_name as scanned_by_name
+       FROM attendance a
+       JOIN events e ON a.event_id = e.id
+       LEFT JOIN users sb ON a.scanned_by = sb.id
+       WHERE a.user_id = $1
+       ORDER BY a.scanned_at DESC`,
+      [id]
+    );
+
+    return success({
+      user,
+      registrations: registrationsResult.rows,
+      payments: paymentsResult.rows,
+      attendance: attendanceResult.rows,
+    });
+  } catch (err) {
+    console.error('Get user details error:', err);
+    return serverError();
+  }
+}
+
 // PATCH /api/admin/users/[id]/verify — approve or reject ID card
 export async function PATCH(
   req: NextRequest,

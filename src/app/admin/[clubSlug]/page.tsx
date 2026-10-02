@@ -67,8 +67,8 @@ export default function ClubAdminPortal({
           const found = d.data.clubs.find((c: Club) => c.slug.toLowerCase() === clubSlug.toLowerCase());
           if (found) {
             setClub(found);
-            // Fetch events for this club
-            return fetch(`/api/events?club_id=${found.id}`)
+            // Fetch all events for this club (including drafts and published)
+            return fetch(`/api/events?club_id=${found.id}&status=all&limit=100`)
               .then(r => r.json())
               .then(ed => {
                 if (ed.success) setEvents(ed.data.events);

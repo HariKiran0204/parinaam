@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Calendar, IndianRupee, TicketCheck, Shield,
   AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, XCircle, Eye,
   Building2, Settings, ExternalLink, Sparkles, ArrowRight,
-  TrendingUp, Check, X, QrCode, Megaphone, School, RefreshCw
+  TrendingUp, Check, X, QrCode, Megaphone, School, RefreshCw,
+  GraduationCap, CreditCard, Trophy, IdCard, Loader2
 } from 'lucide-react';
 import { useRequireRole } from '@/context/AuthContext';
 
@@ -128,6 +129,12 @@ export default function SuperAdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
+  // Inspection Drawer / Modal State
+  const [inspectingUserId, setInspectingUserId] = useState<string | null>(null);
+  const [inspectingData, setInspectingData] = useState<any | null>(null);
+  const [inspectingLoading, setInspectingLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
   // Live feed pagination & filter
   const [feedType, setFeedType] = useState<'users' | 'events'>('users');
   const [feedPage, setFeedPage] = useState(1);
@@ -140,6 +147,23 @@ export default function SuperAdminDashboard() {
   // Broadcast ticker state
   const [broadcastText, setBroadcastText] = useState('Welcome to PARINAAM 2026! Registrations are officially open for all 12 Clubs.');
   const [broadcastSaved, setBroadcastSaved] = useState(false);
+
+  const openStudentInspector = async (userId: string) => {
+    setInspectingUserId(userId);
+    setInspectingData(null);
+    setInspectingLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setInspectingData(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load student details:', err);
+    } finally {
+      setInspectingLoading(false);
+    }
+  };
 
   const loadData = async () => {
     setRefreshing(true);
@@ -454,13 +478,14 @@ export default function SuperAdminDashboard() {
                         <th className="py-2.5">Academic</th>
                         <th className="py-2.5">KYC Status</th>
                         <th className="py-2.5">Pass Status</th>
-                        <th className="py-2.5 text-right">Registered At (IST)</th>
+                        <th className="py-2.5 text-right">Registered (IST)</th>
+                        <th className="py-2.5 text-right pr-2">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {recentUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-500">
+                          <td colSpan={7} className="py-8 text-center text-slate-500">
                             No student user signups recorded yet.
                           </td>
                         </tr>
@@ -544,6 +569,15 @@ export default function SuperAdminDashboard() {
                             <td className="py-3 text-right text-slate-400 font-mono text-[11px]">
                               {formatDateTimeIST(u.created_at)}
                             </td>
+                            <td className="py-3 text-right pr-2">
+                              <button
+                                onClick={() => openStudentInspector(u.id)}
+                                className="inline-flex items-center gap-1 p-1.5 rounded-lg bg-white/5 hover:bg-purple-600/30 text-slate-300 hover:text-white border border-white/10 transition-colors"
+                                title="View Full Student Details"
+                              >
+                                <Eye size={12} />
+                              </button>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -558,12 +592,13 @@ export default function SuperAdminDashboard() {
                         <th className="py-2.5">Branch & Year</th>
                         <th className="py-2.5">Event Enrolled</th>
                         <th className="py-2.5 text-right">Timestamp (IST)</th>
+                        <th className="py-2.5 text-right pr-2">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {recentRegistrations.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-500">
+                          <td colSpan={6} className="py-8 text-center text-slate-500">
                             No event enrollments recorded yet.
                           </td>
                         </tr>
@@ -586,6 +621,17 @@ export default function SuperAdminDashboard() {
                             <td className="py-3 text-right text-slate-400 font-mono text-[11px]">
                               {formatDateTimeIST(r.registered_at)}
                             </td>
+                            <td className="py-3 text-right pr-2">
+                              {r.user_id && (
+                                <button
+                                  onClick={() => openStudentInspector(r.user_id)}
+                                  className="inline-flex items-center gap-1 p-1.5 rounded-lg bg-white/5 hover:bg-purple-600/30 text-slate-300 hover:text-white border border-white/10 transition-colors"
+                                  title="View Full Student Details"
+                                >
+                                  <Eye size={12} />
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         ))
                       )}
@@ -593,8 +639,6 @@ export default function SuperAdminDashboard() {
                   </table>
                 )}
               </div>
-
-              {/* Feed Pagination */}
               {feedTotal > 0 && (
                 <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                   <div className="text-slate-400">
@@ -830,16 +874,25 @@ export default function SuperAdminDashboard() {
                         </div>
                       )}
 
+                      <button
+                        onClick={() => openStudentInspector(u.id)}
+                        className="w-full py-2 mb-1.5 rounded-xl bg-purple-600/15 hover:bg-purple-600/30 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Eye size={13} /> Inspect Student & All Events
+                      </button>
+
                       <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                         <button
+                          disabled={actionLoading}
                           onClick={() => handleVerify(u.id, 'verified')}
-                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-lg shadow-emerald-900/20"
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-lg shadow-emerald-900/20 disabled:opacity-50"
                         >
                           <Check size={14} /> Approve & Grant Pass
                         </button>
                         <button
+                          disabled={actionLoading}
                           onClick={() => handleVerify(u.id, 'rejected')}
-                          className="flex-1 bg-red-600/80 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                          className="flex-1 bg-red-600/80 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                         >
                           <X size={14} /> Reject
                         </button>
@@ -935,6 +988,321 @@ export default function SuperAdminDashboard() {
             </button>
           </div>
         )}
+
+        {/* COMPREHENSIVE STUDENT INSPECTION MODAL */}
+        <AnimatePresence>
+          {inspectingUserId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="w-full max-w-3xl bg-[#0c071a] border border-purple-500/30 rounded-2xl overflow-hidden shadow-2xl relative max-h-[90vh] flex flex-col"
+              >
+                {/* Header */}
+                <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-600 flex items-center justify-center font-bold text-white text-base shadow-lg shadow-purple-900/30">
+                      {((inspectingData?.user?.full_name || inspectingData?.user?.email || 'S').charAt(0)).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-white text-lg leading-tight">
+                          {inspectingData?.user?.full_name || 'Student Profile'}
+                        </h3>
+                        {inspectingData?.user?.is_amrita_student ? (
+                          <span className="text-[10px] font-semibold text-purple-300 bg-purple-500/20 border border-purple-500/40 px-2 py-0.5 rounded-md">
+                            Amrita Student
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-cyan-300 bg-cyan-500/20 border border-cyan-500/40 px-2 py-0.5 rounded-md">
+                            External College
+                          </span>
+                        )}
+                        {inspectingData?.user?.verification_status === 'verified' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                            <CheckCircle size={11} /> Verified Account
+                          </span>
+                        ) : inspectingData?.user?.verification_status === 'rejected' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-500/15 border border-red-500/30 px-2 py-0.5 rounded-full">
+                            <XCircle size={11} /> Rejected
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                            <AlertTriangle size={11} /> Pending Review
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 font-mono mt-0.5">
+                        {inspectingData?.user?.email} {inspectingData?.user?.phone && `· 📞 ${inspectingData.user.phone}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setInspectingUserId(null); setInspectingData(null); }}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-5 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
+                  {inspectingLoading ? (
+                    <div className="py-16 text-center text-slate-400 space-y-3">
+                      <Loader2 size={32} className="animate-spin mx-auto text-purple-400" />
+                      <p className="text-xs font-semibold">Loading complete student profile, registered events & audit logs...</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* 1. Academic & Identity Matrix */}
+                      <div>
+                        <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                          <GraduationCap size={14} /> Student Identity & Academic Details
+                        </h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs bg-white/[0.03] p-4 rounded-xl border border-white/10">
+                          <div>
+                            <p className="text-slate-500 text-[11px]">College / University</p>
+                            <p className="font-semibold text-slate-200 mt-0.5">
+                              {inspectingData?.user?.is_amrita_student ? 'Amrita Vishwa Vidyapeetham, Amaravati' : (inspectingData?.user?.college_name || 'External College')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-[11px]">Roll / Student Number</p>
+                            <p className="font-mono font-bold text-purple-300 mt-0.5">
+                              {inspectingData?.user?.roll_number || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-[11px]">Branch / Department</p>
+                            <p className="font-semibold text-slate-200 mt-0.5">
+                              {inspectingData?.user?.department || 'Not Specified'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-[11px]">Year of Study</p>
+                            <p className="font-semibold text-slate-200 mt-0.5">
+                              {inspectingData?.user?.year_of_study ? `Year ${inspectingData.user.year_of_study}` : 'Not Specified'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-[11px]">City / Location</p>
+                            <p className="text-slate-200 mt-0.5">{inspectingData?.user?.city || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-[11px]">Account Created (IST)</p>
+                            <p className="font-mono text-slate-300 mt-0.5">{formatDateTimeIST(inspectingData?.user?.created_at)}</p>
+                          </div>
+                          {inspectingData?.user?.verified_at && (
+                            <div>
+                              <p className="text-slate-500 text-[11px]">Verified Timestamp (IST)</p>
+                              <p className="font-mono text-emerald-400 font-semibold mt-0.5">
+                                {formatDateTimeIST(inspectingData.user.verified_at)}
+                              </p>
+                            </div>
+                          )}
+                          {inspectingData?.user?.verified_by_name && (
+                            <div>
+                              <p className="text-slate-500 text-[11px]">Verified By</p>
+                              <p className="text-slate-200 font-medium mt-0.5">
+                                {inspectingData.user.verified_by_name}
+                              </p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-slate-500 text-[11px]">Pass Status</p>
+                            <p className="mt-0.5">
+                              {inspectingData?.user?.verification_status !== 'verified' ? (
+                                <span className="font-semibold text-amber-400">Pending Approval</span>
+                              ) : inspectingData?.user?.is_amrita_student ? (
+                                <span className="font-semibold text-purple-300">Free Amrita Pass</span>
+                              ) : inspectingData?.user?.platform_fee_paid ? (
+                                <span className="font-semibold text-emerald-400">Paid Pass Active</span>
+                              ) : (
+                                <span className="font-semibold text-red-400">Unpaid</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. Uploaded ID Card (if available) */}
+                      {inspectingData?.user?.id_card_url && (
+                        <div>
+                          <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <IdCard size={14} /> Uploaded College ID Card
+                          </h4>
+                          <div className="border border-white/10 rounded-xl p-3 bg-white/[0.02]">
+                            <img
+                              src={inspectingData.user.id_card_url}
+                              alt="Uploaded College ID"
+                              onClick={() => setZoomedImage(inspectingData.user.id_card_url)}
+                              className="w-full max-h-56 object-contain rounded-lg bg-black/60 cursor-pointer hover:opacity-95 transition-opacity"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1.5 text-center">Click image to view full screen</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 3. Registered Events Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2.5">
+                          <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Trophy size={14} /> Registered Events & Activity Timeline ({inspectingData?.registrations?.length || 0})
+                          </h4>
+                        </div>
+
+                        {(!inspectingData?.registrations || inspectingData.registrations.length === 0) ? (
+                          <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6 text-center text-slate-500 text-xs">
+                            <Calendar size={24} className="mx-auto mb-1.5 text-slate-600" />
+                            <p className="text-slate-400 font-medium">No event registrations found for this student.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {inspectingData.registrations.map((reg: any) => (
+                              <div
+                                key={reg.registration_id}
+                                className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/10 rounded-xl p-3.5 transition-colors space-y-2"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-bold text-white text-sm">{reg.event_name}</span>
+                                      <span
+                                        className="text-[10px] font-semibold px-2 py-0.5 rounded-md text-white shadow-sm"
+                                        style={{ backgroundColor: reg.club_color || '#9333ea' }}
+                                      >
+                                        {reg.club_name}
+                                      </span>
+                                      <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                                        {reg.category}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1 flex-wrap">
+                                      {reg.venue && <span>📍 {reg.venue}</span>}
+                                      {reg.date_start && (
+                                        <span>📅 {new Date(reg.date_start).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                      )}
+                                      {reg.start_time && <span>⏰ {reg.start_time}</span>}
+                                      {reg.team_name && <span className="text-purple-300 font-medium">👥 Team: {reg.team_name}</span>}
+                                    </div>
+                                  </div>
+
+                                  {/* Exact Registered Timestamp */}
+                                  <div className="sm:text-right shrink-0">
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Registered At (IST)</p>
+                                    <p className="font-mono text-xs text-purple-200 font-bold mt-0.5">
+                                      {formatDateTimeIST(reg.registered_at)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Status & Attendance Bar */}
+                                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs flex-wrap gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                      reg.registration_status === 'CONFIRMED'
+                                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                    }`}>
+                                      {reg.registration_status}
+                                    </span>
+                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                                      reg.payment_status === 'paid'
+                                        ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                        : 'bg-white/5 text-slate-400'
+                                    }`}>
+                                      {reg.amount_paid > 0 ? `₹${reg.amount_paid} Paid` : 'Free Registration'}
+                                    </span>
+                                  </div>
+
+                                  {/* Attendance Check-in Info */}
+                                  <div>
+                                    {reg.checked_in_at ? (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                                        <CheckCircle size={12} /> Checked-in {formatDateTimeIST(reg.checked_in_at)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[11px] text-slate-500 font-mono">
+                                        ⏳ Not Checked In
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 4. Payment History (if any) */}
+                      {inspectingData?.payments && inspectingData.payments.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <CreditCard size={14} /> Razorpay Payments Audit ({inspectingData.payments.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {inspectingData.payments.map((p: any) => (
+                              <div key={p.payment_id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 flex items-center justify-between text-xs">
+                                <div>
+                                  <p className="font-mono text-white font-semibold">{p.razorpay_payment_id || p.razorpay_order_id || 'Direct Payment'}</p>
+                                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">{formatDateTimeIST(p.created_at)}</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-bold text-emerald-400 font-mono text-sm">₹{p.amount}</span>
+                                  <p className="text-[10px] text-emerald-300 font-semibold uppercase">{p.status}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Modal Footer / Verification Action */}
+                <div className="p-4 border-t border-white/10 bg-[#080413] flex items-center justify-between gap-3">
+                  {inspectingData?.user?.verification_status === 'verified' ? (
+                    <div className="w-full flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5">
+                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs">
+                        <CheckCircle size={16} />
+                        <span>✓ Verified Student Account & Pass Active</span>
+                      </div>
+                      <span className="text-[11px] text-emerald-300 font-mono">
+                        {inspectingData?.user?.verified_at ? `Verified: ${formatDateTimeIST(inspectingData.user.verified_at)}` : 'Approved'}
+                      </span>
+                    </div>
+                  ) : inspectingData?.user?.verification_status === 'rejected' ? (
+                    <div className="w-full flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
+                      <div className="flex items-center gap-2 text-red-400 font-semibold text-xs">
+                        <XCircle size={16} />
+                        <span>Student Account Rejected</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full flex items-center gap-3">
+                      <button
+                        disabled={actionLoading}
+                        onClick={() => handleVerify(inspectingData?.user?.id || inspectingUserId, 'verified')}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-900/30"
+                      >
+                        <CheckCircle size={14} /> Approve & Verify Pass
+                      </button>
+                      <button
+                        disabled={actionLoading}
+                        onClick={() => handleVerify(inspectingData?.user?.id || inspectingUserId, 'rejected')}
+                        className="flex-1 bg-red-600 hover:bg-red-500 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                      >
+                        <XCircle size={14} /> Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>
