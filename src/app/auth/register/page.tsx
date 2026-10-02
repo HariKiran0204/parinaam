@@ -56,17 +56,12 @@ declare global {
 export default function RegisterPage() {
   const { register, user, refreshUser } = useAuth();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState(0);
   const [studentType, setStudentType] = useState<'amrita' | 'other'>('other');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const [idCardPreview, setIdCardPreview] = useState<string>('');
@@ -394,14 +389,6 @@ export default function RegisterPage() {
       setError('Could not open payment window. Please try again.');
     }
   };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-[#05030a] flex items-center justify-center p-4">
-        <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
-      </div>
-    );
-  }
 
   // SUCCESS SCREEN (Payment Verified & QR Generated)
   if (paymentSuccessData) {
