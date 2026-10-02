@@ -171,7 +171,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       {/* Toast Notification Popup when event added to cart */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] max-w-sm w-full bg-[#130924]/95 border border-fuchsia-500/60 rounded-2xl p-4 shadow-[0_0_40px_rgba(217,70,239,0.35)] backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-300">
+        <div className="fixed bottom-8 right-6 z-[99999] max-w-sm w-[calc(100vw-3rem)] sm:w-96 bg-[#0e071e] border-2 border-fuchsia-500/70 rounded-2xl p-4 shadow-[0_10px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(217,70,239,0.4)] backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-300">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-fuchsia-500/20 border border-fuchsia-500/40 text-fuchsia-300 flex items-center justify-center shrink-0">
               <ShoppingBag size={20} className="animate-pulse" />

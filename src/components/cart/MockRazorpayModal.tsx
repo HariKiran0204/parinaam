@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShieldAlert, CheckCircle2, XCircle, X, Loader2, Sparkles, ShoppingBag } from 'lucide-react';
 
@@ -46,6 +46,18 @@ export const MockRazorpayModal: React.FC<MockRazorpayModalProps> = ({
   const [simulatedSuccess, setSimulatedSuccess] = useState(false);
 
   if (!isOpen) return null;
+
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   const handleSimulateSuccess = async () => {
     setProcessing(true);

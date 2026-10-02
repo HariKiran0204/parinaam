@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FestEvent } from '../../types';
 import { X, Calendar, Clock, MapPin, Users, Trophy, Download, Phone, Mail, CheckCircle2, ShieldCheck, Ticket, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';

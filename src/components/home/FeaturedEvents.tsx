@@ -37,6 +37,8 @@ function mapApiEventToFestEvent(e: any): FestEvent {
     registrationUrl: e.registration_url || e.unstop_url || '',
     isPopular: Boolean(e.is_popular || e.is_featured),
     registrationOpen: Boolean(e.registration_open),
+    clubName: e.club_name || e.category || 'Parinaam',
+    clubColor: e.club_color || '#a855f7',
   };
 }
 
