@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { success, error, unauthorized, forbidden, serverError } from '@/lib/apiResponse';
+import { isValidEmail, isValidStudentName } from '@/lib/utils';
 
 // PATCH /api/admin/users/[id]/verify — approve or reject ID card
 export async function PATCH(
@@ -74,6 +75,14 @@ export async function PUT(
       platform_fee_paid,
       role,
     } = body;
+
+    if (full_name !== undefined) {
+      const nameCheck = isValidStudentName(full_name);
+      if (!nameCheck.valid) return error(nameCheck.error || 'Student name is invalid');
+    }
+    if (email !== undefined && !isValidEmail(email)) {
+      return error('Please enter a valid email address');
+    }
 
     await db.query(
       `UPDATE users SET

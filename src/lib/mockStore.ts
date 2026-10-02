@@ -142,9 +142,54 @@ const USERS_DATA: MockUser[] = [
   })),
 ];
 
-// Events are added exclusively by Club Admins / Super Admin via the admin portal.
-// No seed data - all events come from the PostgreSQL database in production.
-const EVENTS_DATA: MockEvent[] = [];
+// Flagship events seeded for development and testing
+const EVENTS_DATA: MockEvent[] = [
+  {
+    id: 'evt-agentic-ai-n8n',
+    club_id: 'club-3', // ReLU
+    created_by: 'user-admin-relu',
+    name: 'Agentic AI & n8n Automation Hackathon',
+    event_code: 'RELU-AGNT',
+    tagline: 'Build autonomous multi-agent pipelines & workflows with n8n and LLMs',
+    short_description: 'Design, orchestrate, and deploy autonomous agentic AI workflows integrating open-source n8n automation, LLMs, and real-time APIs.',
+    full_description: 'Join the premier Agentic AI challenge of PARINAAM 2026 organized by ReLU. Teams will design and demonstrate end-to-end multi-agent systems using n8n and state-of-the-art LLMs, tackling enterprise automation, workflow orchestration, and generative intelligence.',
+    category: 'Coding & Hackathon',
+    tags: ['Agentic AI', 'n8n', 'LLMs', 'Automation', 'AI/ML'],
+    venue: 'AI & Data Analytics Lab, Amrita Vishwa Vidyapeetham',
+    date_start: '2026-10-11',
+    date_end: '2026-10-12',
+    start_time: '10:00 AM',
+    end_time: '05:00 PM',
+    day_number: 1,
+    min_team_size: 1,
+    max_team_size: 3,
+    capacity: 100,
+    enrolled: 18,
+    fee: 0,
+    prize_pool: '₹35,000 + Cloud Credits',
+    eligibility: 'Open to all undergraduate and postgraduate engineering students.',
+    rules: [
+      'Teams must design functional workflows using n8n community or self-hosted instances.',
+      'Workflows must include at least 2 autonomous agentic loops or tool-use steps.',
+      'All code and automation schemas must be submitted to GitHub.'
+    ],
+    rounds: [
+      { name: 'Round 1: Architecture Pitch', description: 'Present agentic design, tools, and trigger model', date: 'Day 1' },
+      { name: 'Round 2: Live Prototype Demo', description: 'End-to-end workflow execution and stress testing', date: 'Day 2' }
+    ],
+    coordinators: [
+      { name: 'Arun V.', role: 'Student Coordinator', phone: '9876543210', email: 'arun@relu.amrita.edu' }
+    ],
+    poster_url: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1000&q=80',
+    rulebook_url: '',
+    status: 'published',
+    registration_open: true,
+    is_popular: true,
+    is_featured: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+];
 
 // Global in-memory storage singleton
 class MockDbEngine {

@@ -11,6 +11,7 @@ import {
   Loader2, RefreshCw
 } from 'lucide-react';
 import { useRequireRole } from '@/context/AuthContext';
+import { isValidEmail, isValidStudentName, MAX_STUDENT_NAME_LENGTH } from '@/lib/utils';
 
 interface User {
   id: string;
@@ -254,6 +255,18 @@ export default function AdminUsersPage() {
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUser) return;
+
+    const nameCheck = isValidStudentName(editForm.full_name);
+    if (!nameCheck.valid) {
+      alert(nameCheck.error || 'Student name is invalid');
+      return;
+    }
+
+    if (!isValidEmail(editForm.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
     setActionLoading(true);
     try {
       const res = await fetch(`/api/admin/users/${editUser.id}`, {
@@ -883,11 +896,14 @@ export default function AdminUsersPage() {
                 <form onSubmit={handleSaveEdit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-medium text-slate-400 block mb-1">Full Name</label>
+                      <label className="text-xs font-medium text-slate-400 block mb-1">
+                        Full Name (max {MAX_STUDENT_NAME_LENGTH} chars)
+                      </label>
                       <input
                         type="text"
+                        maxLength={MAX_STUDENT_NAME_LENGTH}
                         value={editForm.full_name}
-                        onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                        onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value.slice(0, MAX_STUDENT_NAME_LENGTH) }))}
                         className="w-full bg-[#05030a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
                       />
                     </div>

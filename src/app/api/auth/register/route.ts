@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { signToken, COOKIE_NAME, COOKIE_OPTIONS } from '@/lib/auth';
 import { success, error, serverError } from '@/lib/apiResponse';
 import { isInstitutionalEmail, STANDARD_PLATFORM_FEE_INR } from '@/lib/institutionPolicy';
+import { isValidEmail, isValidStudentName } from '@/lib/utils';
 
 const AMRITA_DOMAIN = 'av.students.amrita.edu';
 
@@ -30,11 +31,19 @@ export async function POST(req: NextRequest) {
       return error('Email, password and full name are required');
     }
 
+    const emailLower = email.toLowerCase().trim();
+    if (!isValidEmail(emailLower)) {
+      return error('Please enter a valid email address');
+    }
+
+    const nameCheck = isValidStudentName(full_name);
+    if (!nameCheck.valid) {
+      return error(nameCheck.error || 'Student name is invalid');
+    }
+
     if (password.length < 8) {
       return error('Password must be at least 8 characters');
     }
-
-    const emailLower = email.toLowerCase().trim();
 
     // Check if Amrita student based on selection or recognized institutional email domain
     const isAmritaDomain = isInstitutionalEmail(emailLower);

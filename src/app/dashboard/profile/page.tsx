@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Phone, Building2, GraduationCap, MapPin, Save, Loader2, CheckCircle, Upload, AlertTriangle } from 'lucide-react';
 import { useRequireAuth, useAuth } from '@/context/AuthContext';
+import { isValidStudentName, MAX_STUDENT_NAME_LENGTH } from '@/lib/utils';
 
 export default function ProfilePage() {
   const { user } = useRequireAuth();
@@ -31,18 +32,33 @@ export default function ProfilePage() {
     });
   }, [user]);
 
+  const [errorMsg, setErrorMsg] = useState('');
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
+
+    const nameCheck = isValidStudentName(form.full_name);
+    if (!nameCheck.valid) {
+      setErrorMsg(nameCheck.error || 'Student name is invalid');
+      return;
+    }
+
     setSaving(true);
-    await fetch('/api/auth/profile', {
+    const res = await fetch('/api/auth/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     });
-    await refreshUser();
+    const data = await res.json();
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (data.success) {
+      await refreshUser();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } else {
+      setErrorMsg(data.error || 'Failed to update profile');
+    }
   };
 
   const handleIdUpload = async () => {
@@ -140,13 +156,23 @@ export default function ProfilePage() {
             {user.is_amrita_student && <p className="text-xs text-purple-400 mt-1">✓ Verified Amrita student</p>}
           </div>
 
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+              <AlertTriangle size={14} className="shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           <div>
-            <label className="text-xs font-medium text-slate-400 block mb-1.5">Full Name</label>
+            <label className="text-xs font-medium text-slate-400 block mb-1.5">
+              Full Name (max {MAX_STUDENT_NAME_LENGTH} chars)
+            </label>
             <div className="relative">
               <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600"/>
               <input
                 value={form.full_name}
-                onChange={e => setForm(p => ({ ...p, full_name: e.target.value }))}
+                maxLength={MAX_STUDENT_NAME_LENGTH}
+                onChange={e => setForm(p => ({ ...p, full_name: e.target.value.slice(0, MAX_STUDENT_NAME_LENGTH) }))}
                 placeholder="As on college ID"
                 className={`${inp} pl-9`}
                 required

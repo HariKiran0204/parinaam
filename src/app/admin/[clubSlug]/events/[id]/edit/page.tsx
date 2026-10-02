@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Save, Eye, AlertCircle } from 'lucide-react';
 import { useRequireRole } from '@/context/AuthContext';
+import { EventImageUploader } from '@/components/admin/EventImageUploader';
 
 export default function EditEventPage() {
 	const { id, clubSlug } = useParams<{ id: string; clubSlug: string }>();
@@ -18,7 +19,7 @@ export default function EditEventPage() {
 		name: '', tagline: '', short_description: '', full_description: '',
 		venue: '', date_start: '', date_end: '', start_time: '', end_time: '',
 		fee: '0', capacity: '', prize_pool: '', eligibility: '',
-		status: 'draft', registration_open: false, is_popular: false,
+		poster_url: '', status: 'draft', registration_open: false, is_popular: false,
 	});
 
 	useEffect(() => {
@@ -39,6 +40,7 @@ export default function EditEventPage() {
 					capacity: ev.capacity ? String(ev.capacity) : '',
 					prize_pool: ev.prize_pool || '',
 					eligibility: ev.eligibility || '',
+					poster_url: ev.poster_url || '',
 					status: ev.status || 'draft',
 					registration_open: ev.registration_open ?? false,
 					is_popular: ev.is_popular ?? false,
@@ -130,6 +132,7 @@ export default function EditEventPage() {
 					</div>
 					<F label="Prize Pool"><input value={form.prize_pool} onChange={e => set('prize_pool', e.target.value)} placeholder="e.g. ₹50,000" className={inp} /></F>
 					<F label="Eligibility"><textarea value={form.eligibility} onChange={e => set('eligibility', e.target.value)} rows={2} className={txta} /></F>
+					<EventImageUploader value={form.poster_url} onChange={url => set('poster_url', url)} />
 
 					<div className="space-y-3 pt-2">
 						{[
