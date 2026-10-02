@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
+import crypto from 'crypto';
 
 const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'parinaam-2026-super-secret-key-change-in-production'
@@ -27,6 +28,46 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, SECRET);
     return payload as JWTPayload;
+  } catch {
+    return null;
+  }
+}
+
+const AES_KEY = crypto
+  .createHash('sha256')
+  .update(process.env.JWT_SECRET || 'parinaam-2026-super-secret-key-change-in-production')
+  .digest();
+
+export async function signRegistrationToken(payload: Record<string, any>): Promise<string> {
+  const payloadWithExpiry = {
+    ...payload,
+    exp: Math.floor(Date.now() / 1000) + 7200, // 2 hours
+  };
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', AES_KEY, iv);
+  let encrypted = cipher.update(JSON.stringify(payloadWithExpiry), 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `enc_${iv.toString('hex')}_${authTag}_${encrypted}`;
+}
+
+export async function verifyRegistrationToken(token: string): Promise<Record<string, any> | null> {
+  try {
+    if (!token || !token.startsWith('enc_')) return null;
+    const parts = token.slice(4).split('_');
+    if (parts.length !== 3) return null;
+    const [ivHex, authTagHex, encryptedHex] = parts;
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', AES_KEY, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    const payload = JSON.parse(decrypted);
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) {
+      return null;
+    }
+    return payload;
   } catch {
     return null;
   }
