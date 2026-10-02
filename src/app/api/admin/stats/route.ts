@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
       clubStats,
       recentUsers,
       recentRegistrations,
+      clubEventReports,
     ] = await Promise.all([
       db.query(`SELECT COUNT(*) FROM users WHERE role = 'student'`),
       db.query(`SELECT COUNT(*) FROM users WHERE verification_status = 'pending' AND role = 'student'`),
@@ -80,6 +81,35 @@ export async function GET(req: NextRequest) {
         ORDER BY r.registered_at DESC
         LIMIT 100
       `),
+      db.query(`
+        SELECT 
+          c.id as club_id,
+          c.name as club_name,
+          c.slug as club_slug,
+          c.color as club_color,
+          e.id as event_id,
+          e.name as event_name,
+          e.event_code,
+          e.category,
+          e.venue,
+          COALESCE(e.fee, 0) as event_fee,
+          e.capacity,
+          e.date_start,
+          e.start_time,
+          e.day_number,
+          COUNT(r.id) FILTER (WHERE r.status = 'CONFIRMED') as confirmed_count,
+          COUNT(r.id) FILTER (WHERE r.status = 'PENDING') as pending_count,
+          COUNT(r.id) as total_count,
+          COUNT(a.id) FILTER (WHERE a.status = 'SUCCESS') as checked_in_count,
+          COALESCE(SUM(r.amount_paid) FILTER (WHERE r.status = 'CONFIRMED'), 0) as total_revenue
+        FROM events e
+        JOIN clubs c ON e.club_id = c.id
+        LEFT JOIN registrations r ON r.event_id = e.id
+        LEFT JOIN attendance a ON a.event_id = e.id AND a.user_id = r.user_id AND a.status = 'SUCCESS'
+        WHERE e.status != 'cancelled'
+        GROUP BY c.id, c.name, c.slug, c.color, e.id, e.name, e.event_code, e.category, e.venue, e.fee, e.capacity, e.date_start, e.start_time, e.day_number
+        ORDER BY c.name ASC, confirmed_count DESC
+      `),
     ]);
 
     return success({
@@ -98,6 +128,7 @@ export async function GET(req: NextRequest) {
       branch_stats: branchStats.rows,
       year_stats: yearStats.rows,
       club_stats: clubStats.rows,
+      club_event_reports: clubEventReports.rows || [],
       recent_users: recentUsers.rows,
       recent_registrations: recentRegistrations.rows,
     });

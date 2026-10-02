@@ -617,14 +617,21 @@ class MockDbEngine {
     }
 
     // 15. DELETE FROM OTHER TABLES
+    if (qLower.startsWith('delete from events')) {
+      const id = params[0]?.toString();
+      this.events = this.events.filter(e => e.id !== id);
+      this.registrations = this.registrations.filter(r => r.event_id !== id);
+      this.attendance = this.attendance.filter(a => a.event_id !== id);
+      return { rows: [], rowCount: 1 };
+    }
     if (qLower.startsWith('delete from registrations')) {
       const id = params[0]?.toString();
-      this.registrations = this.registrations.filter(r => r.user_id !== id && r.id !== id);
+      this.registrations = this.registrations.filter(r => r.user_id !== id && r.id !== id && r.event_id !== id);
       return { rows: [], rowCount: 1 };
     }
     if (qLower.startsWith('delete from attendance')) {
       const id = params[0]?.toString();
-      this.attendance = this.attendance.filter(a => a.user_id !== id && a.id !== id);
+      this.attendance = this.attendance.filter(a => a.user_id !== id && a.id !== id && a.event_id !== id);
       return { rows: [], rowCount: 1 };
     }
     if (qLower.startsWith('delete from payments')) {
