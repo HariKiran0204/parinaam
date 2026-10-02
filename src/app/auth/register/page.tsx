@@ -293,7 +293,7 @@ export default function RegisterPage() {
       }
     }
 
-    const rzpKey = rzpOrder?.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_Tj1xekDdSGlLZx';
+    const rzpKey = rzpOrder?.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
     if (typeof window.Razorpay === 'undefined') {
       setError('Payment gateway is loading. Please try again in a few seconds.');
