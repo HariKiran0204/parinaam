@@ -119,14 +119,20 @@ export default function RegisterPage() {
     }
   }, [user, router, paymentSuccessData, registeredUserSession]);
 
-  // Load Razorpay checkout script on mount
+  // Load Razorpay checkout script on mount safely
   useEffect(() => {
-    if (!document.getElementById('razorpay-checkout-script')) {
-      const script = document.createElement('script');
-      script.id = 'razorpay-checkout-script';
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      document.body.appendChild(script);
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      if (!document.getElementById('razorpay-checkout-script') && !window.Razorpay) {
+        try {
+          const script = document.createElement('script');
+          script.id = 'razorpay-checkout-script';
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.async = true;
+          document.body.appendChild(script);
+        } catch {
+          // ignore
+        }
+      }
     }
   }, []);
 
