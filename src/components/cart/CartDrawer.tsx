@@ -55,17 +55,35 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     }
 
     setLoadingEvents(true);
-    fetch('/api/events?limit=100')
+    fetch('/api/events?status=all&limit=100')
       .then(res => res.json())
       .then(data => {
         if (data.success && Array.isArray(data.data.events)) {
-          const matched = data.data.events
-            .filter((e: any) => cartItemIds.includes(e.id))
-            .map((e: any) => ({
-              ...e,
-              registration_open: Boolean(e.registration_open),
-              status: e.status,
-            }));
+          const matchedMap = new Map<string, any>(data.data.events.map((e: any) => [e.id, e]));
+          const matched = cartItemIds.map((id) => {
+            const e: any = matchedMap.get(id);
+            if (e) {
+              return {
+                ...e,
+                fee: Number(e.fee) || 0,
+                registration_open: Boolean(e.registration_open),
+                status: e.status,
+              };
+            }
+            return {
+              id,
+              name: 'Unavailable Event',
+              category: 'N/A',
+              fee: 0,
+              club_name: 'System',
+              poster_url: '',
+              date_start: '',
+              start_time: '',
+              registration_open: false,
+              status: 'unavailable',
+              isDeleted: true,
+            };
+          });
           setEvents(matched);
         }
       })
