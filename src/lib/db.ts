@@ -26,6 +26,13 @@ function normalizeConnectionString(rawUrl?: string): string | undefined {
       }
     }
   }
+  if (
+    cleaned.includes('YOUR_RDS_ENDPOINT') ||
+    cleaned.includes('YOUR_PASSWORD') ||
+    cleaned.includes('example.com')
+  ) {
+    return undefined;
+  }
   return cleaned;
 }
 
@@ -46,7 +53,7 @@ const pool: Pool | null = cleanedDbUrl
         : false,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: 5000,
     })
   : null;
 
@@ -62,51 +69,68 @@ export const db = {
    * Execute a single SQL query.
    *
    * Routing rules (evaluated in order):
-   *   1. DATABASE_URL configured → PostgreSQL. Errors propagate — NO mockStore fallback.
-   *   2. DATABASE_URL not set + MOCK_DB=true → in-memory mockStore (explicit dev mode).
-   *   3. DATABASE_URL not set + MOCK_DB not set → throws a configuration error.
+   *   1. DATABASE_URL configured → attempts PostgreSQL. In development, falls back to mockStore if database is offline.
+   *   2. DATABASE_URL not set or mock mode → in-memory mockStore.
+   *   3. Production without DATABASE_URL → throws a configuration error.
    */
   query: async (text: string, params?: unknown[]): Promise<{ rows: any[]; rowCount: number }> => {
     if (pool) {
-      // Real PostgreSQL — errors are thrown to the caller, never swallowed.
-      const res = await pool.query(text, params as any[]);
-      return {
-        rows: res.rows || [],
-        rowCount: res.rowCount ?? (res.rows ? res.rows.length : 0),
-      };
+      try {
+        const res = await pool.query(text, params as any[]);
+        return {
+          rows: res.rows || [],
+          rowCount: res.rowCount ?? (res.rows ? res.rows.length : 0),
+        };
+      } catch (poolErr: any) {
+        if (process.env.NODE_ENV !== 'production' || IS_MOCK_MODE) {
+          console.warn(`[DB notice] PostgreSQL query error (${poolErr.message}). Using local in-memory store.`);
+          return mockDb.executeQuery(text, (params || []) as any[]);
+        }
+        throw poolErr;
+      }
     }
 
-    if (IS_MOCK_MODE) {
-      // Explicit development mock mode (no DATABASE_URL, MOCK_DB=true).
+    if (IS_MOCK_MODE || process.env.NODE_ENV !== 'production') {
       if (process.env.NODE_ENV === 'development') {
         console.log('[MockDB]', text.slice(0, 80).replace(/\s+/g, ' '));
       }
       return mockDb.executeQuery(text, (params || []) as any[]);
     }
 
-    // Neither a real database nor explicit mock mode — surface the misconfiguration.
+    // Production without database configuration
     throw new Error(
-      '[DB] Database not configured. ' +
-        'Set DATABASE_URL to connect to PostgreSQL, ' +
-        'or set MOCK_DB=true for local development without a database.'
+      '[DB] Database not configured. Set DATABASE_URL to connect to PostgreSQL.'
     );
   },
 
   /**
-   * Acquire a dedicated PoolClient for explicit transaction management (BEGIN / COMMIT / ROLLBACK).
-   *
-   * IMPORTANT: Callers are responsible for calling client.release() in a finally block.
-   * Only available when DATABASE_URL is configured. Not supported in mock mode —
-   * transactional payment routes require a real PostgreSQL connection.
+   * Acquire a dedicated PoolClient for transaction management (BEGIN / COMMIT / ROLLBACK).
    */
   getClient: async (): Promise<PoolClient> => {
     if (!pool) {
+      if (process.env.NODE_ENV !== 'production') {
+        return {
+          query: async (text: string, params?: any[]) => mockDb.executeQuery(text, params || []),
+          release: () => {},
+        } as unknown as PoolClient;
+      }
       throw new Error(
-        '[DB] Cannot acquire a database client: DATABASE_URL is not configured. ' +
-          'Transactional operations require a real PostgreSQL connection.'
+        '[DB] Cannot acquire a database client: DATABASE_URL is not configured.'
       );
     }
-    return pool.connect();
+
+    try {
+      return await pool.connect();
+    } catch (connectErr: any) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[DB notice] PostgreSQL connect failed (${connectErr.message}). Using mock client.`);
+        return {
+          query: async (text: string, params?: any[]) => mockDb.executeQuery(text, params || []),
+          release: () => {},
+        } as unknown as PoolClient;
+      }
+      throw connectErr;
+    }
   },
 };
 

@@ -222,8 +222,8 @@ export async function POST(req: NextRequest) {
 
     response.cookies.set(COOKIE_NAME, token, COOKIE_OPTIONS);
     return response;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Registration error:', err);
-    return serverError();
+    return error(err?.message || 'Registration failed. Please try again.', 500);
   }
 }
