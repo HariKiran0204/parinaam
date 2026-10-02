@@ -89,8 +89,8 @@ export async function POST(req: NextRequest) {
         return error('Platform fee already paid', 409);
       }
 
-      const rzpKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_Tj1xekDdSGlLZx';
-      const rzpSecret = process.env.RAZORPAY_KEY_SECRET || 'iG7V5PISj2ERvhLFGAD3Wass';
+      const rzpKeyId = process.env.RAZORPAY_KEY_ID;
+      const rzpSecret = process.env.RAZORPAY_KEY_SECRET;
       let rzpOrderId: string;
 
       try {
@@ -390,8 +390,10 @@ export async function POST(req: NextRequest) {
     if (isRealRazorpay()) {
       // ── Real Razorpay API call ─────────────────────────────────────────────
       try {
+        const rzpKeyId = process.env.RAZORPAY_KEY_ID;
+        const rzpSecret = process.env.RAZORPAY_KEY_SECRET;
         const authHeader = Buffer.from(
-          `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`,
+          `${rzpKeyId}:${rzpSecret}`,
         ).toString('base64');
 
         const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
