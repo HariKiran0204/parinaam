@@ -44,63 +44,95 @@ export async function GET(
 
     const user = userResult.rows[0];
 
-    // 2. Fetch all registered events for this student with timestamps and attendance
-    const registrationsResult = await db.query(
-      `SELECT 
-        r.id as registration_id, r.status as registration_status, r.payment_status,
-        r.amount_paid, r.team_name, r.team_members, r.registered_at, r.confirmed_at,
-        COALESCE(e.id, r.event_id) as event_id, 
-        COALESCE(e.name, 'Festival Event Registration') as event_name, 
-        COALESCE(e.event_code, 'EVT') as event_code, 
-        COALESCE(e.category, 'General') as category, 
-        COALESCE(e.venue, 'Amrita Campus') as venue,
-        e.date_start, e.start_time, e.end_time, e.day_number, 
-        COALESCE(e.fee, r.amount_paid, 0) as event_fee,
-        e.poster_url,
-        c.id as club_id, 
-        COALESCE(c.name, 'PARINAAM Fest') as club_name, 
-        COALESCE(c.slug, 'parinaam') as club_slug, 
-        COALESCE(c.color, '#9333ea') as club_color,
-        a.id as attendance_id, a.scanned_at as checked_in_at, a.status as attendance_status
-       FROM registrations r
-       LEFT JOIN events e ON r.event_id = e.id
-       LEFT JOIN clubs c ON e.club_id = c.id
-       LEFT JOIN attendance a ON a.user_id = r.user_id AND a.event_id = r.event_id AND a.status = 'SUCCESS'
-       WHERE r.user_id = $1 OR r.user_id = $2 OR r.user_id IN (SELECT id FROM users WHERE id = $1 OR email = $3)
-       ORDER BY r.registered_at DESC`,
-      [user.id, id, user.email]
-    );
+    // 2. Fetch registrations with isolated error handling
+    let registrations: any[] = [];
+    try {
+      const registrationsResult = await db.query(
+        `SELECT 
+          r.id as registration_id, r.status as registration_status, r.payment_status,
+          COALESCE(r.amount_paid, 0) as amount_paid, r.team_name, r.team_members, r.registered_at, r.confirmed_at,
+          COALESCE(e.id, r.event_id) as event_id, 
+          COALESCE(e.name, 'Festival Event Registration') as event_name, 
+          COALESCE(e.event_code, 'EVT') as event_code, 
+          COALESCE(e.category, 'General') as category, 
+          COALESCE(e.venue, 'Amrita Campus') as venue,
+          e.date_start, e.start_time, e.end_time, e.day_number, 
+          COALESCE(e.fee, r.amount_paid, 0) as event_fee,
+          e.poster_url,
+          c.id as club_id, 
+          COALESCE(c.name, 'PARINAAM Fest') as club_name, 
+          COALESCE(c.slug, 'parinaam') as club_slug, 
+          COALESCE(c.color, '#9333ea') as club_color,
+          a.id as attendance_id, a.scanned_at as checked_in_at, a.status as attendance_status
+         FROM registrations r
+         LEFT JOIN events e ON r.event_id = e.id
+         LEFT JOIN clubs c ON e.club_id = c.id
+         LEFT JOIN attendance a ON a.user_id = r.user_id AND a.event_id = r.event_id AND a.status = 'SUCCESS'
+         WHERE r.user_id = $1
+         ORDER BY r.registered_at DESC`,
+        [user.id]
+      );
+      registrations = registrationsResult.rows || [];
+    } catch (regErr) {
+      console.error('Failed to fetch detailed registrations:', regErr);
+      try {
+        const fallbackRegs = await db.query(
+          `SELECT r.id as registration_id, r.status as registration_status, r.payment_status, r.registered_at,
+                  COALESCE(e.name, 'Festival Event') as event_name, COALESCE(c.name, 'PARINAAM Fest') as club_name
+           FROM registrations r
+           LEFT JOIN events e ON r.event_id = e.id
+           LEFT JOIN clubs c ON e.club_id = c.id
+           WHERE r.user_id = $1`,
+          [user.id]
+        );
+        registrations = fallbackRegs.rows || [];
+      } catch (fbErr) {
+        console.error('Fallback registrations query failed:', fbErr);
+      }
+    }
 
     // 3. Fetch payment audit history
-    const paymentsResult = await db.query(
-      `SELECT 
-        id as payment_id, razorpay_order_id, razorpay_payment_id,
-        amount, currency, status, notes, created_at
-       FROM payments
-       WHERE user_id = $1 OR user_id = $2
-       ORDER BY created_at DESC`,
-      [user.id, id]
-    );
+    let payments: any[] = [];
+    try {
+      const paymentsResult = await db.query(
+        `SELECT 
+          id as payment_id, razorpay_order_id, razorpay_payment_id,
+          amount, currency, status, notes, created_at
+         FROM payments
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [user.id]
+      );
+      payments = paymentsResult.rows || [];
+    } catch (payErr) {
+      console.error('Failed to fetch payments:', payErr);
+    }
 
     // 4. Fetch attendance audit logs
-    const attendanceResult = await db.query(
-      `SELECT 
-        a.id as attendance_id, a.event_id, COALESCE(e.name, 'Festival Event') as event_name,
-        a.scanned_at, a.status,
-        sb.full_name as scanned_by_name
-       FROM attendance a
-       LEFT JOIN events e ON a.event_id = e.id
-       LEFT JOIN users sb ON a.scanned_by = sb.id
-       WHERE a.user_id = $1 OR a.user_id = $2
-       ORDER BY a.scanned_at DESC`,
-      [user.id, id]
-    );
+    let attendance: any[] = [];
+    try {
+      const attendanceResult = await db.query(
+        `SELECT 
+          a.id as attendance_id, a.event_id, COALESCE(e.name, 'Festival Event') as event_name,
+          a.scanned_at, a.status,
+          sb.full_name as scanned_by_name
+         FROM attendance a
+         LEFT JOIN events e ON a.event_id = e.id
+         LEFT JOIN users sb ON a.scanned_by = sb.id
+         WHERE a.user_id = $1
+         ORDER BY a.scanned_at DESC`,
+        [user.id]
+      );
+      attendance = attendanceResult.rows || [];
+    } catch (attErr) {
+      console.error('Failed to fetch attendance:', attErr);
+    }
 
     return success({
       user,
-      registrations: registrationsResult.rows,
-      payments: paymentsResult.rows,
-      attendance: attendanceResult.rows,
+      registrations,
+      payments,
+      attendance,
     });
   } catch (err) {
     console.error('Get user details error:', err);
