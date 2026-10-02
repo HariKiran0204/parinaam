@@ -222,50 +222,50 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
       transition={{ delay: index * 0.04, duration: 0.35 }}
       className="group bg-white/5 border border-white/10 hover:border-purple-500/50 rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-2xl hover:shadow-purple-900/20"
     >
-      {/* Poster — Full uncropped image with frosted ambient backdrop */}
-      <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-black/90 flex items-center justify-center border-b border-white/5">
+      {/* Poster — Big Full uncropped image with 3:4 portrait framing */}
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0a0614] flex items-center justify-center border-b border-white/10">
         {event.poster_url ? (
           <>
             <img
               src={event.poster_url}
               alt=""
               aria-hidden
-              className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-125 pointer-events-none"
+              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
             />
             <img
               src={event.poster_url}
               alt={event.name}
-              className="relative z-10 w-full h-full object-contain p-1.5 group-hover:scale-[1.02] transition-transform duration-500"
+              className="relative z-10 w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500 drop-shadow-2xl"
             />
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="w-16 h-16 rounded-2xl opacity-20" style={{ background: event.club_color }} />
+            <div className="w-20 h-20 rounded-2xl opacity-20" style={{ background: event.club_color }} />
           </div>
         )}
         {/* Subtle bottom gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#05030a]/80 via-transparent to-transparent pointer-events-none z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#05030a]/90 via-transparent to-transparent pointer-events-none z-10" />
         {/* Badges */}
-        <div className="absolute top-3 left-3 flex gap-2 flex-wrap z-20">
+        <div className="absolute top-3.5 left-3.5 flex gap-2 flex-wrap z-20">
           {event.is_popular && (
-            <span className="bg-amber-500/90 text-amber-950 text-xs font-bold px-2 py-0.5 rounded-full shadow">🔥 Popular</span>
+            <span className="bg-amber-500/95 text-amber-950 text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md">🔥 Popular</span>
           )}
           {almostFull && (
-            <span className="bg-red-500/90 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">⚡ {spotsLeft} spots left</span>
+            <span className="bg-red-500/95 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md">⚡ {spotsLeft} spots left</span>
           )}
           {isFull && (
-            <span className="bg-slate-700/90 text-slate-300 text-xs font-bold px-2 py-0.5 rounded-full">Full</span>
+            <span className="bg-slate-800/95 text-slate-300 text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md">Full</span>
           )}
         </div>
         {/* Club tag */}
-        <div className="absolute bottom-3 left-3 z-20">
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-white shadow-md backdrop-blur-md" style={{ background: `${event.club_color}dd` }}>
+        <div className="absolute bottom-3.5 left-3.5 z-20">
+          <span className="text-xs font-semibold px-3 py-1 rounded-full text-white shadow-lg backdrop-blur-md border border-white/10" style={{ background: `${event.club_color}dd` }}>
             {event.club_name}
           </span>
         </div>
         {/* Fee */}
-        <div className="absolute top-3 right-3 z-20">
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-md shadow ${event.fee === 0 ? 'bg-emerald-500/90 text-white' : 'bg-black/75 text-purple-300 border border-purple-500/30'}`}>
+        <div className="absolute top-3.5 right-3.5 z-20">
+          <span className={`text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md shadow-lg ${event.fee === 0 ? 'bg-emerald-500/95 text-white' : 'bg-black/80 text-purple-300 border border-purple-500/40'}`}>
             {event.fee === 0 ? 'FREE' : `₹${event.fee}`}
           </span>
         </div>
