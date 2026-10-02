@@ -71,12 +71,12 @@ export async function GET(req: NextRequest) {
       db.query(`
         SELECT r.id, r.registered_at, r.status,
           u.full_name, u.college_name, u.is_amrita_student, u.department, u.year_of_study,
-          e.name as event_name,
-          c.name as club_name
+          COALESCE(e.name, 'Festival Event') as event_name,
+          COALESCE(c.name, 'PARINAAM Fest') as club_name
         FROM registrations r
         JOIN users u ON r.user_id = u.id
-        JOIN events e ON r.event_id = e.id
-        JOIN clubs c ON e.club_id = c.id
+        LEFT JOIN events e ON r.event_id = e.id
+        LEFT JOIN clubs c ON e.club_id = c.id
         ORDER BY r.registered_at DESC
         LIMIT 100
       `),

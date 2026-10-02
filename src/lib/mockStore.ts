@@ -714,6 +714,44 @@ class MockDbEngine {
       } else if (qLower.includes('user_id =')) {
         result = result.filter(r => r.user_id === params[0]);
       }
+      if (qLower.includes('join events') || qLower.includes('registration_id') || qLower.includes('event_name') || qLower.includes('club_name')) {
+        const enriched = result.map(r => {
+          const event = this.events.find(e => e.id === r.event_id);
+          const club = event ? this.clubs.find(c => c.id === event.club_id) : undefined;
+          const att = this.attendance.find(a => a.user_id === r.user_id && a.event_id === r.event_id && a.status === 'SUCCESS');
+          return {
+            ...r,
+            registration_id: r.id,
+            registration_status: r.status,
+            payment_status: r.payment_status || 'paid',
+            amount_paid: r.amount_paid || 0,
+            team_name: r.team_name || null,
+            team_members: r.team_members || null,
+            registered_at: r.registered_at,
+            confirmed_at: r.confirmed_at || r.registered_at,
+            event_id: r.event_id,
+            event_name: event?.name || 'Festival Event Registration',
+            event_code: event?.event_code || 'EVT',
+            category: event?.category || 'General',
+            venue: event?.venue || 'Amrita Campus',
+            date_start: event?.date_start || '2026-10-15',
+            start_time: event?.start_time || '10:00 AM',
+            end_time: event?.end_time || '05:00 PM',
+            day_number: event?.day_number || 1,
+            event_fee: event?.fee || r.amount_paid || 0,
+            fee: event?.fee || r.amount_paid || 0,
+            poster_url: event?.poster_url || '',
+            club_id: club?.id || event?.club_id || 'club-1',
+            club_name: club?.name || 'PARINAAM Fest',
+            club_slug: club?.slug || 'parinaam',
+            club_color: club?.color || '#9333ea',
+            attendance_id: att?.id || null,
+            checked_in_at: att?.scanned_at || null,
+            attendance_status: att?.status || null,
+          };
+        });
+        return { rows: enriched, rowCount: enriched.length };
+      }
       return { rows: result, rowCount: result.length };
     }
 

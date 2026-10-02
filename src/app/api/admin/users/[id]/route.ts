@@ -46,14 +46,22 @@ export async function GET(
       `SELECT 
         r.id as registration_id, r.status as registration_status, r.payment_status,
         r.amount_paid, r.team_name, r.team_members, r.registered_at, r.confirmed_at,
-        e.id as event_id, e.name as event_name, e.event_code, e.category, e.venue,
-        e.date_start, e.start_time, e.end_time, e.day_number, e.fee as event_fee,
+        COALESCE(e.id, r.event_id) as event_id, 
+        COALESCE(e.name, 'Festival Event Registration') as event_name, 
+        COALESCE(e.event_code, 'EVT') as event_code, 
+        COALESCE(e.category, 'General') as category, 
+        COALESCE(e.venue, 'Amrita Campus') as venue,
+        e.date_start, e.start_time, e.end_time, e.day_number, 
+        COALESCE(e.fee, r.amount_paid, 0) as event_fee,
         e.poster_url,
-        c.id as club_id, c.name as club_name, c.slug as club_slug, c.color as club_color,
+        c.id as club_id, 
+        COALESCE(c.name, 'PARINAAM Fest') as club_name, 
+        COALESCE(c.slug, 'parinaam') as club_slug, 
+        COALESCE(c.color, '#9333ea') as club_color,
         a.id as attendance_id, a.scanned_at as checked_in_at, a.status as attendance_status
        FROM registrations r
-       JOIN events e ON r.event_id = e.id
-       JOIN clubs c ON e.club_id = c.id
+       LEFT JOIN events e ON r.event_id = e.id
+       LEFT JOIN clubs c ON e.club_id = c.id
        LEFT JOIN attendance a ON a.user_id = r.user_id AND a.event_id = r.event_id AND a.status = 'SUCCESS'
        WHERE r.user_id = $1
        ORDER BY r.registered_at DESC`,
@@ -74,11 +82,11 @@ export async function GET(
     // 4. Fetch attendance audit logs
     const attendanceResult = await db.query(
       `SELECT 
-        a.id as attendance_id, a.event_id, e.name as event_name,
+        a.id as attendance_id, a.event_id, COALESCE(e.name, 'Festival Event') as event_name,
         a.scanned_at, a.status,
         sb.full_name as scanned_by_name
        FROM attendance a
-       JOIN events e ON a.event_id = e.id
+       LEFT JOIN events e ON a.event_id = e.id
        LEFT JOIN users sb ON a.scanned_by = sb.id
        WHERE a.user_id = $1
        ORDER BY a.scanned_at DESC`,
