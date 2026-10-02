@@ -46,8 +46,9 @@ export async function GET(req: NextRequest) {
           e.category, e.tags, e.venue, e.date_start, e.date_end,
           e.start_time, e.end_time, e.day_number, e.min_team_size,
           e.max_team_size, e.capacity, e.enrolled, e.fee, e.prize_pool,
-          e.poster_url, e.status, e.registration_open, e.is_popular,
-          e.is_featured, e.created_at,
+          e.poster_url, e.status, 
+          (CASE WHEN e.status = 'published' AND (e.registration_open IS NULL OR e.registration_open = false) THEN true ELSE e.registration_open END) as registration_open,
+          e.is_popular, e.is_featured, e.created_at,
           c.id as club_id, c.name as club_name, c.slug as club_slug, c.color as club_color
          FROM events e
          JOIN clubs c ON e.club_id = c.id
@@ -96,7 +97,8 @@ export async function POST(req: NextRequest) {
       capacity, fee = 0, prize_pool, eligibility,
       rules = [], rounds = [], coordinators = [],
       poster_url, rulebook_url, status = 'draft',
-      registration_open = false, is_popular = false,
+      registration_open = body.registration_open !== undefined ? body.registration_open : (status === 'published'),
+      is_popular = false,
       club_id: bodyClubId,
     } = body;
 

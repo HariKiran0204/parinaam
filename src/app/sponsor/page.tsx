@@ -21,6 +21,7 @@ import {
   MapPin,
   Briefcase
 } from 'lucide-react';
+import { isValidEmail } from '@/lib/utils';
 
 const SPONSOR_PACKAGES = [
   {
@@ -111,8 +112,17 @@ export default function SponsorRegistrationPage() {
     setFormData((prev) => ({ ...prev, tier: tierId }));
   };
 
+  const [formError, setFormError] = useState('');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+
+    if (!isValidEmail(formData.email)) {
+      setFormError('Please enter a valid official corporate email address (e.g. name@company.com)');
+      return;
+    }
+
     setIsSubmitting(true);
 
     setTimeout(() => {
@@ -394,6 +404,11 @@ export default function SponsorRegistrationPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                  {formError && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+                      ⚠️ {formError}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {/* Company Name */}
                     <div>

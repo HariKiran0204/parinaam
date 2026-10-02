@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { EventImageUploader } from '@/components/admin/EventImageUploader';
+import { isValidEmail } from '@/lib/utils';
 
 const CATEGORIES = [
   'Technical', 'Cultural', 'Coding & Hackathon', 'Robotics',
@@ -109,7 +110,6 @@ export default function CreateClubEventPage({
       { label: 'Category', value: form.category },
       { label: 'Short description', value: form.short_description },
       { label: 'Full detailed description', value: form.full_description },
-      { label: 'Event poster URL', value: form.poster_url },
     ].find(field => !field.value.trim());
 
     if (missingBasicField) {
@@ -117,16 +117,39 @@ export default function CreateClubEventPage({
       setActiveSection('basic');
       return;
     }
-    try {
-      const posterUrl = new URL(form.poster_url.trim());
-      if (posterUrl.protocol !== 'http:' && posterUrl.protocol !== 'https:') {
-        throw new Error('Invalid poster URL protocol');
+
+    // Auto-assign default festival cover if none is chosen
+    let effectivePoster = form.poster_url?.trim() || '';
+    if (!effectivePoster) {
+      effectivePoster = 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1000&q=80';
+      set('poster_url', effectivePoster);
+    } else {
+      // Validate poster URL (supports uploaded photo data:image/ base64, relative / paths, and http/https URLs)
+      const isDataUrl = effectivePoster.startsWith('data:image/');
+      const isRelative = effectivePoster.startsWith('/');
+      if (!isDataUrl && !isRelative) {
+        try {
+          const parsed = new URL(effectivePoster);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            throw new Error('Invalid poster URL protocol');
+          }
+        } catch {
+          setError('Event poster must be a valid uploaded image, preset photo, or HTTP/HTTPS URL');
+          setActiveSection('basic');
+          return;
+        }
       }
-    } catch {
-      setError('Event poster URL must be a valid HTTP or HTTPS URL');
-      setActiveSection('basic');
-      return;
     }
+
+    // Validate coordinator emails
+    for (const coord of form.coordinators) {
+      if (coord.email?.trim() && !isValidEmail(coord.email.trim())) {
+        setError(`Coordinator email '${coord.email}' is not a valid email address`);
+        setActiveSection('coordinators');
+        return;
+      }
+    }
+
     if (publish && !form.date_start.trim()) {
       setError('Event start date is required to publish an event');
       setActiveSection('schedule');
@@ -142,12 +165,13 @@ export default function CreateClubEventPage({
 
     const payload = {
       ...form,
+      poster_url: effectivePoster,
       date_start: form.date_start.trim() || null,
       date_end: form.date_end.trim() || null,
       start_time: form.start_time.trim() || null,
       end_time: form.end_time.trim() || null,
       status: publish ? 'published' : form.status,
-      registration_open: publish ? true : form.registration_open,
+      registration_open: publish ? true : (form.registration_open ?? true),
       fee: parseInt(form.fee) || 0,
       min_team_size: parseInt(form.min_team_size) || 1,
       max_team_size: parseInt(form.max_team_size) || 1,

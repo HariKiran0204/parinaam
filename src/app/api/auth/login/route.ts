@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { signToken, COOKIE_NAME, COOKIE_OPTIONS } from '@/lib/auth';
 import { success, error, serverError } from '@/lib/apiResponse';
+import { isValidEmail } from '@/lib/utils';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,9 @@ export async function POST(req: NextRequest) {
     }
 
     const emailLower = email.toLowerCase().trim();
+    if (!isValidEmail(emailLower)) {
+      return error('Please enter a valid email address');
+    }
 
     // Find user with club details
     const result = await db.query(

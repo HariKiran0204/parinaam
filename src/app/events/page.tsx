@@ -196,6 +196,8 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
   const isStudent = user?.role === 'student';
   const isProfileComplete = isStudentProfileComplete(user);
 
+  const isRegistrationOpen = event.status === 'published' ? (event.registration_open ?? true) : Boolean(event.registration_open);
+
   const handleInterestedClick = () => {
     if (!user) {
       router.push('/auth/login?redirect=/events');
@@ -207,7 +209,7 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
       return;
     }
     if (isStudent) {
-      toggleCartItem(event.id);
+      toggleCartItem(event.id, event.name);
     }
   };
 
@@ -297,9 +299,9 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
             ) : (
               <button
                 onClick={handleInterestedClick}
-                disabled={isFull || !event.registration_open}
+                disabled={isFull || !isRegistrationOpen}
                 className={`flex-1 text-center text-sm font-semibold py-2 rounded-xl transition-all ${
-                  isFull || !event.registration_open
+                  isFull || !isRegistrationOpen
                     ? 'bg-white/5 text-slate-600 cursor-not-allowed'
                     : inCart && isStudent
                       ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-900/20'
@@ -307,7 +309,7 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
                 }`}>
                 {isFull
                   ? 'Full'
-                  : !event.registration_open
+                  : !isRegistrationOpen
                     ? 'Closed'
                     : inCart && isStudent
                       ? '✓ Interested'
