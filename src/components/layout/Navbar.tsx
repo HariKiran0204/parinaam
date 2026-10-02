@@ -18,6 +18,19 @@ export const Navbar = () => {
   const { user, loading, logout } = useAuth();
   const { cartCount, isCartOpen, openCart, closeCart } = useCart();
 
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const close = () => setUserMenuOpen(false);
+    if (userMenuOpen) document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [userMenuOpen]);
+
   // Completely hide Navbar on registration pages
   if (pathname === '/auth/register' || pathname === '/register' || pathname?.startsWith('/auth/register')) {
     return null;
@@ -33,19 +46,6 @@ export const Navbar = () => {
     }
     openCart();
   };
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Close user menu on outside click
-  useEffect(() => {
-    const close = () => setUserMenuOpen(false);
-    if (userMenuOpen) document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [userMenuOpen]);
 
   const navLinks = user
     ? user.role === 'student'
