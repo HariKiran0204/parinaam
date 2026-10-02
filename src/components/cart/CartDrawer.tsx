@@ -8,6 +8,7 @@ import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, Loader2, Sparkles, Ale
 import Link from 'next/link';
 import { isInstitutionalEmail, STANDARD_PLATFORM_FEE_INR, isStudentProfileComplete } from '@/lib/institutionPolicy';
 import { MockRazorpayModal } from './MockRazorpayModal';
+import { loadRazorpayCheckoutScript } from '@/lib/razorpayCheckout';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -196,7 +197,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
         }
       };
 
-      if (is_mock || typeof window === 'undefined' || !(window as any).Razorpay) {
+      const scriptLoaded = await loadRazorpayCheckoutScript();
+
+      if (is_mock || !scriptLoaded || typeof window === 'undefined' || !(window as any).Razorpay) {
+        if (!is_mock && !scriptLoaded) {
+          setCheckoutError('Payment gateway could not be loaded. Please check your internet connection.');
+          setProcessingPayment(false);
+          return;
+        }
         // Open Mock Razorpay Test Checkout Modal in development mode
         setMockOrderData({
           order_id,

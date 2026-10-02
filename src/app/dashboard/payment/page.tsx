@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { CreditCard, CheckCircle, Loader2, IndianRupee, Shield } from 'lucide-react';
 import { useRequireAuth } from '@/context/AuthContext';
 import { useAuth } from '@/context/AuthContext';
+import { launchRazorpayStandardCheckout } from '@/lib/razorpayCheckout';
 
 function PaymentContent() {
   const { user } = useRequireAuth();
@@ -31,16 +32,16 @@ function PaymentContent() {
     }
     if (type === 'platform_fee') {
       // Fetch platform fee from config
-      fetch('/api/payments/create-order', {
+      fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'platform_fee' }),
       }).then(r => r.json()).then(d => {
         if (d.success) {
-          if (d.data.is_free) {
+          if (d.is_free || d.amount === 0) {
             router.push('/dashboard/pass');
           } else {
-            setInfo({ amount: d.data.amount / 100, description: d.data.description });
+            setInfo({ amount: d.amount / 100, description: 'Parinaam 2026 Festival Delegate Pass' });
           }
         } else if (d.error?.includes('already paid')) {
           router.push('/dashboard/pass');
@@ -56,11 +57,12 @@ function PaymentContent() {
 
   const handlePay = async () => {
     if (!info) return;
-    setPaying(true); setError('');
+    setPaying(true);
+    setError('');
 
     try {
-      // 1. Create order
-      const ordRes = await fetch('/api/payments/create-order', {
+      // 1. Create order server-side via POST /api/create-order
+      const ordRes = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,29 +72,50 @@ function PaymentContent() {
         }),
       });
       const ordData = await ordRes.json();
-      if (!ordData.success) throw new Error(ordData.error || 'Failed to create order');
+      if (!ordData.success) throw new Error(ordData.error || 'Failed to create payment order.');
 
-      // 2. In mock mode (or test mode), auto-verify
-      const verRes = await fetch('/api/payments/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          razorpay_order_id: ordData.data.order_id,
-          razorpay_payment_id: `pay_mock_${Date.now()}`,
-          razorpay_signature: 'mock_signature_valid',
-        }),
+      if (ordData.is_free || ordData.amount === 0) {
+        setDone(true);
+        await refreshUser();
+        setTimeout(() => {
+          router.push(type === 'platform_fee' ? '/pass' : '/dashboard');
+        }, 1500);
+        return;
+      }
+
+      // 2. Open Razorpay Checkout modal
+      await launchRazorpayStandardCheckout({
+        key_id: ordData.key_id,
+        order_id: ordData.order_id,
+        amount: ordData.amount,
+        currency: ordData.currency || 'INR',
+        name: 'PARINAAM 2026',
+        description: info.description || (type === 'platform_fee' ? 'Festival Delegate Pass' : 'Event Registration'),
+        prefill: {
+          name: user?.full_name || '',
+          email: user?.email || '',
+          contact: user?.phone || '',
+        },
+        paymentDbId: ordData.payment_db_id,
+        verifyEndpoint: '/api/verify-payment',
+        onSuccess: async () => {
+          setDone(true);
+          await refreshUser();
+          setTimeout(() => {
+            router.push(type === 'platform_fee' ? '/pass' : '/dashboard');
+          }, 1500);
+        },
+        onFailure: (errMsg: string) => {
+          setPaying(false);
+          setError(errMsg);
+        },
+        onDismiss: () => {
+          // Treated as cancelled by user, not an error
+          setPaying(false);
+        },
       });
-      const verData = await verRes.json();
-      if (!verData.success) throw new Error(verData.error || 'Payment verification failed');
-
-      setDone(true);
-      await refreshUser();
-      setTimeout(() => {
-        router.push(type === 'platform_fee' ? '/pass' : '/dashboard');
-      }, 2000);
     } catch (e: any) {
-      setError(e.message || 'Payment failed');
-    } finally {
+      setError(e.message || 'Payment initiation failed.');
       setPaying(false);
     }
   };
