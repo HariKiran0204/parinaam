@@ -42,3 +42,38 @@ export function generateOpaqueQRToken(participantId: string): string {
 export function formatDate(dateString: string): string {
   return dateString;
 }
+
+/**
+ * Standard email format regex adhering to RFC 5322 validation
+ */
+export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+/**
+ * Validates whether the given string is a correctly formatted email address
+ */
+export function isValidEmail(email: string | null | undefined): boolean {
+  if (!email || typeof email !== 'string') return false;
+  return EMAIL_REGEX.test(email.trim());
+}
+
+/**
+ * Maximum character length allowed for student names across the platform
+ */
+export const MAX_STUDENT_NAME_LENGTH = 16;
+
+/**
+ * Validates student name length (max 16 characters) and non-empty status
+ */
+export function isValidStudentName(name: string | null | undefined): { valid: boolean; error?: string } {
+  const trimmed = name?.trim() || '';
+  if (!trimmed) {
+    return { valid: false, error: 'Student name is required' };
+  }
+  if (trimmed.length > MAX_STUDENT_NAME_LENGTH) {
+    return {
+      valid: false,
+      error: `Student name must not exceed ${MAX_STUDENT_NAME_LENGTH} characters (currently ${trimmed.length})`,
+    };
+  }
+  return { valid: true };
+}

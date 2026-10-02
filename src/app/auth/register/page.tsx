@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { useAuth, RegisterData } from '@/context/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
+import { isValidEmail, isValidStudentName, MAX_STUDENT_NAME_LENGTH } from '@/lib/utils';
 
 const AMRITA_DOMAIN = 'av.students.amrita.edu';
 const STEPS = ['Category & Account', 'Student Profile', 'Pass & Payment'];
@@ -168,7 +169,11 @@ export default function RegisterPage() {
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const validateStep0 = () => {
-    if (!form.email.trim()) return 'Email address is required';
+    const emailTrimmed = form.email.trim();
+    if (!emailTrimmed) return 'Email address is required';
+    if (!isValidEmail(emailTrimmed)) {
+      return 'Please enter a valid email address (e.g. name@example.com)';
+    }
     if (isAmritaSelected && !isAmritaEmail) {
       return `Amrita students must use an official Amrita email (@${AMRITA_DOMAIN})`;
     }
@@ -180,7 +185,10 @@ export default function RegisterPage() {
   };
 
   const validateStep1 = () => {
-    if (!form.full_name.trim()) return 'Full name is required';
+    const nameCheck = isValidStudentName(form.full_name);
+    if (!nameCheck.valid) {
+      return nameCheck.error || 'Student name is invalid';
+    }
     const cleanPhone = (form.phone ?? '').replace(/\D/g, '');
     if (!cleanPhone) return 'Phone number is required';
     if (cleanPhone.length !== 10) return 'Phone number must be exactly 10 digits';
@@ -665,15 +673,16 @@ export default function RegisterPage() {
                 {/* Full Name */}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Full Name (as per ID)
+                    Full Name (as per ID, max {MAX_STUDENT_NAME_LENGTH} chars)
                   </label>
                   <div className="relative">
                     <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="text"
+                      maxLength={MAX_STUDENT_NAME_LENGTH}
                       value={form.full_name}
-                      onChange={e => set('full_name', e.target.value)}
-                      placeholder="e.g. John Doe"
+                      onChange={e => set('full_name', e.target.value.slice(0, MAX_STUDENT_NAME_LENGTH))}
+                      placeholder="e.g. Rahul Sharma"
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500"
                     />
                   </div>

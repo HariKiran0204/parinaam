@@ -60,7 +60,7 @@ export default function EventDetailPage() {
       return;
     }
     if (isStudent) {
-      toggleCartItem(id);
+      toggleCartItem(id, event?.name);
     }
   };
 
@@ -82,6 +82,7 @@ export default function EventDetailPage() {
   const spotsLeft = event.capacity ? event.capacity - event.enrolled : null;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
   const isTeamEvent = event.max_team_size > 1;
+  const isRegistrationOpen = event.status === 'published' ? (event.registration_open ?? true) : Boolean(event.registration_open);
 
   return (
     <div className="min-h-screen bg-[#05030a] pt-24 pb-20">
@@ -255,9 +256,9 @@ export default function EventDetailPage() {
                     <>
                       <button
                         onClick={handleInterestedClick}
-                        disabled={isFull || !event.registration_open || (!!user && user.verification_status !== 'verified')}
+                        disabled={isFull || !isRegistrationOpen || (!!user && user.verification_status !== 'verified')}
                         className={`w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all ${
-                          isFull || !event.registration_open || (!!user && user.verification_status !== 'verified')
+                          isFull || !isRegistrationOpen || (!!user && user.verification_status !== 'verified')
                             ? 'bg-white/5 text-slate-500 cursor-not-allowed border border-white/10'
                             : inCart && isStudent
                               ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-900/30'
@@ -266,7 +267,7 @@ export default function EventDetailPage() {
                       >
                         {isFull
                           ? 'Event is Full'
-                          : !event.registration_open
+                          : !isRegistrationOpen
                             ? 'Registration Closed'
                             : !user
                               ? 'Sign in to Register'

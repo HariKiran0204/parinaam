@@ -25,6 +25,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (result.rows.length === 0) return notFound('Event not found');
 
     const event = result.rows[0];
+    if (event.status === 'published' && (event.registration_open === null || event.registration_open === false)) {
+      event.registration_open = true;
+    }
 
     // Non-admins can only see published events
     if (event.status !== 'published') {
