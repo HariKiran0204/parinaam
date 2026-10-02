@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             amount: amountPaise,
             currency: 'INR',
-            receipt: `pass_${user.id.slice(0, 10)}_${Date.now().toString().slice(-6)}`,
+            receipt: `pf_${Date.now().toString().slice(-8)}`,
             notes: {
               userId: user.id,
               userEmail: user.email,
@@ -161,7 +161,8 @@ export async function POST(req: NextRequest) {
           const rzpData = await rzpRes.json();
           rzpOrderId = rzpData.id;
         } else {
-          console.warn('[Razorpay] Fallback to generated order ID');
+          const errText = await rzpRes.text();
+          console.warn('[Razorpay] Order API returned error status:', rzpRes.status, errText);
           rzpOrderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
         }
       } catch (rzpErr) {

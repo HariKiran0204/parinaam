@@ -89,20 +89,56 @@ export async function POST(req: NextRequest) {
         return error('Platform fee already paid', 409);
       }
 
-      // Platform fee Razorpay order (simple — not multi-event, no heavy transaction needed)
-      const pfOrderId = `order_pf_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const rzpKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_Tiu069JKxrr7S3';
+      const rzpSecret = process.env.RAZORPAY_KEY_SECRET || 'pQsgXDk4UCnx0gJu642PnLyT';
+      let rzpOrderId: string;
+
+      try {
+        const authHeader = Buffer.from(`${rzpKeyId}:${rzpSecret}`).toString('base64');
+        const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${authHeader}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount,
+            currency: 'INR',
+            receipt: `pf_${Date.now().toString().slice(-8)}`,
+            notes: {
+              userId: session.userId,
+              userEmail: session.email,
+              type: 'platform_fee',
+              passName: 'Parinaam 2026 Official Festival Pass',
+            },
+          }),
+        });
+
+        if (rzpRes.ok) {
+          const rzpData = await rzpRes.json();
+          rzpOrderId = rzpData.id;
+        } else {
+          const errText = await rzpRes.text();
+          console.error('[Razorpay Platform Fee Error]', rzpRes.status, errText);
+          return error('Could not create Razorpay order. Please try again.', 502);
+        }
+      } catch (err: any) {
+        console.error('[Razorpay Platform Fee Network Error]', err);
+        return error('Payment gateway is unreachable. Please try again.', 502);
+      }
+
       const paymentResult = await db.query(
         `INSERT INTO payments (user_id, type, amount, razorpay_order_id, status)
          VALUES ($1, 'platform_fee', $2, $3, 'created') RETURNING id`,
-        [session.userId, amount, pfOrderId],
+        [session.userId, amount, rzpOrderId],
       );
       return success({
-        order_id: pfOrderId,
+        order_id: rzpOrderId,
         amount,
         currency: 'INR',
         description: 'Parinaam 2026 Official Festival Pass (₹1000 Fixed Entry)',
         payment_db_id: paymentResult.rows[0].id,
-        key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_Tiu069JKxrr7S3',
+        key_id: rzpKeyId,
       });
     }
 

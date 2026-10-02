@@ -262,7 +262,7 @@ export default function RegisterPage() {
     setPaymentProcessing(true);
 
     let rzpOrder = pendingRazorpayOrder;
-    if (!rzpOrder || !rzpOrder.order_id) {
+    if (!rzpOrder || !rzpOrder.order_id || !rzpOrder.order_id.startsWith('order_')) {
       try {
         const orderRes = await fetch('/api/payments/create-order', {
           method: 'POST',
@@ -270,19 +270,25 @@ export default function RegisterPage() {
           body: JSON.stringify({ type: 'platform_fee' }),
         });
         const orderJson = await orderRes.json();
-        if (orderJson.success && orderJson.data) {
+        if (orderJson.success && orderJson.data && orderJson.data.order_id) {
           rzpOrder = orderJson.data;
           setPendingRazorpayOrder(rzpOrder);
+        } else {
+          setError(orderJson.error || 'Failed to create payment order. Please try again.');
+          setPaymentProcessing(false);
+          return;
         }
       } catch {
-        // Continue with default fallback
+        setError('Network error connecting to payment gateway. Please try again.');
+        setPaymentProcessing(false);
+        return;
       }
     }
 
     const rzpKey = rzpOrder?.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_Tiu069JKxrr7S3';
 
     if (typeof window.Razorpay === 'undefined') {
-      setError('Payment gateway is loading. Please try again in 3 seconds.');
+      setError('Payment gateway is loading. Please try again in a few seconds.');
       setPaymentProcessing(false);
       return;
     }
@@ -295,9 +301,9 @@ export default function RegisterPage() {
       description: 'Official Festival Pass (Includes 4 Flagship Events)',
       order_id: rzpOrder?.order_id,
       prefill: {
-        name: form.full_name,
-        email: form.email,
-        contact: form.phone,
+        name: form.full_name || registeredUserSession?.full_name || '',
+        email: form.email || registeredUserSession?.email || '',
+        contact: form.phone || registeredUserSession?.phone || '',
       },
       theme: {
         color: '#9333ea',
@@ -311,7 +317,7 @@ export default function RegisterPage() {
               payment_db_id: rzpOrder?.payment_db_id,
               razorpay_order_id: response.razorpay_order_id || rzpOrder?.order_id,
               razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature || 'test_sig',
+              razorpay_signature: response.razorpay_signature,
               type: 'platform_fee',
             }),
           });
@@ -321,15 +327,15 @@ export default function RegisterPage() {
 
           if (verifyData.success) {
             setPaymentSuccessData({
-              qrToken: verifyData.data.qr_token || registeredUserSession?.qr_token || registeredUserSession?.id,
-              studentName: form.full_name,
+              qrToken: verifyData.data?.qr_token || registeredUserSession?.qr_token || registeredUserSession?.id,
+              studentName: form.full_name || registeredUserSession?.full_name || 'Student',
               amount: 1000,
             });
             refreshUser();
           } else {
             setError(verifyData.error || 'Payment verification failed. Please contact support.');
           }
-        } catch (err) {
+        } catch {
           setPaymentProcessing(false);
           setError('Network error verifying payment. Please refresh your dashboard.');
         }
@@ -345,7 +351,7 @@ export default function RegisterPage() {
       const razorpayInstance = new window.Razorpay(options);
       razorpayInstance.on('payment.failed', function (resp: any) {
         setPaymentProcessing(false);
-        setError(`Payment failed: ${resp.error.description || 'Transaction declined'}`);
+        setError(`Payment failed: ${resp?.error?.description || 'Transaction declined'}`);
       });
       razorpayInstance.open();
     } catch (err: any) {
