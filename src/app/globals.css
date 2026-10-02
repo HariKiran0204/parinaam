@@ -5,9 +5,7 @@
 @layer base {
   * {
     border-color: var(--border, #231435);
-    cursor: none !important;
   }
-
   
   html {
     scroll-behavior: smooth;
@@ -17,53 +15,15 @@
   body {
     background-color: var(--background, #05030a);
     color: var(--foreground, #f1f5f9);
-    font-family: var(--font-gothic, 'Oswald', 'Inter', sans-serif);
-    font-weight: 300;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Headings — gothic ultra condensed, slightly bolder */
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-gothic, 'Oswald', sans-serif);
-    font-weight: 400;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-  }
-
-  /* All readable content text — Gothic Ultra */
-  p, li, label, a, td, th, blockquote, figcaption,
-  span:not([class*="font-pixel"]):not([class*="Pixelify"]):not([class*="pixel"]) {
-    font-family: var(--font-gothic, 'Oswald', sans-serif);
-    font-weight: 300;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  /* Inputs & buttons: Gothic but tighter spacing */
-  input, textarea, select, button {
-    font-family: var(--font-gothic, 'Oswald', sans-serif);
-    font-weight: 300;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-  }
-
-  /* ====================================================
-     PIXEL FONT — protect from gothic overrides
-     ==================================================== */
-  .font-pixel,
-  [class*="font-pixel"],
-  .pixel-magenta-glow,
-  [class*="Pixelify"],
-  [style*="Pixelify"],
-  [style*="Silkscreen"] {
-    font-family: var(--font-pixel, 'Pixelify Sans', 'Silkscreen', monospace) !important;
-    letter-spacing: revert !important;
-    text-transform: revert !important;
-    font-weight: revert !important;
+    font-family: var(--font-display, 'Outfit', 'Inter', sans-serif);
+    letter-spacing: -0.01em;
   }
 }
 
