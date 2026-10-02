@@ -53,7 +53,9 @@ export default function CreateClubEventPage({
     category: '', tags: [] as string[], tagInput: '',
     venue: '', date_start: '', date_end: '', start_time: '', end_time: '',
     day_number: '1',
+    participation_type: 'individual' as 'individual' | 'team',
     min_team_size: '1', max_team_size: '1',
+    team_pricing_structure: '',
     capacity: '', fee: '0', prize_pool: '',
     eligibility: '',
     rules: [''] as string[],
@@ -163,6 +165,15 @@ export default function CreateClubEventPage({
     setError('');
     setSaving(true);
 
+    let effectiveEligibility = form.eligibility || '';
+    if (form.participation_type === 'team' && form.team_pricing_structure?.trim()) {
+      if (!effectiveEligibility.includes(form.team_pricing_structure.trim())) {
+        effectiveEligibility = effectiveEligibility
+          ? `${effectiveEligibility}\n\nTeam Pricing Structure: ${form.team_pricing_structure.trim()}`
+          : `Team Pricing Structure: ${form.team_pricing_structure.trim()}`;
+      }
+    }
+
     const payload = {
       ...form,
       poster_url: effectivePoster,
@@ -175,6 +186,7 @@ export default function CreateClubEventPage({
       fee: parseInt(form.fee) || 0,
       min_team_size: parseInt(form.min_team_size) || 1,
       max_team_size: parseInt(form.max_team_size) || 1,
+      eligibility: effectiveEligibility,
       capacity: form.capacity ? parseInt(form.capacity) : null,
       day_number: parseInt(form.day_number) || 1,
       rules: form.rules.filter(r => r.trim()),
@@ -399,27 +411,82 @@ export default function CreateClubEventPage({
                 {/* Team & Capacity */}
                 {activeSection === 'team' && (
                   <>
-                    <h2 className="text-lg font-bold text-white">Team Size & Capacity</h2>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField label="Min Team Size">
-                        <input
-                          type="number"
-                          min="1"
-                          value={form.min_team_size}
-                          onChange={e => set('min_team_size', e.target.value)}
-                          className={inp}
-                        />
-                      </FormField>
-                      <FormField label="Max Team Size">
-                        <input
-                          type="number"
-                          min="1"
-                          value={form.max_team_size}
-                          onChange={e => set('max_team_size', e.target.value)}
-                          className={inp}
-                        />
-                      </FormField>
+                    <h2 className="text-lg font-bold text-white">Participation Type & Team Structure</h2>
+                    
+                    {/* Mode selector */}
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                      <div
+                        onClick={() => {
+                          set('participation_type', 'individual');
+                          set('min_team_size', '1');
+                          set('max_team_size', '1');
+                        }}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                          form.participation_type === 'individual'
+                            ? 'bg-purple-950/50 border-purple-500 ring-2 ring-purple-500/30'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <p className="text-white font-bold text-sm">👤 Individual / Solo</p>
+                        <p className="text-slate-400 text-xs mt-1">Single participant entry per pass</p>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          set('participation_type', 'team');
+                          if (form.min_team_size === '1' && form.max_team_size === '1') {
+                            set('min_team_size', '2');
+                            set('max_team_size', '4');
+                          }
+                        }}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                          form.participation_type === 'team'
+                            ? 'bg-purple-950/50 border-purple-500 ring-2 ring-purple-500/30'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <p className="text-white font-bold text-sm">👥 Team Participation</p>
+                        <p className="text-slate-400 text-xs mt-1">Multi-member squads with custom sizes/pricing</p>
+                      </div>
                     </div>
+
+                    {form.participation_type === 'team' && (
+                      <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-500/30 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField label="Min Team Members">
+                            <input
+                              type="number"
+                              min="2"
+                              value={form.min_team_size}
+                              onChange={e => set('min_team_size', e.target.value)}
+                              className={inp}
+                            />
+                          </FormField>
+                          <FormField label="Max Team Members">
+                            <input
+                              type="number"
+                              min="2"
+                              value={form.max_team_size}
+                              onChange={e => set('max_team_size', e.target.value)}
+                              className={inp}
+                            />
+                          </FormField>
+                        </div>
+
+                        <FormField label="Team Pricing Breakdown / Tiers">
+                          <input
+                            value={form.team_pricing_structure}
+                            onChange={e => set('team_pricing_structure', e.target.value)}
+                            placeholder="e.g. ₹350 for team of 4, ₹200 for team of 2"
+                            className={inp}
+                          />
+                          <p className="text-slate-400 text-[11px] mt-1">
+                            Specify any custom pricing tiers per team size (will be highlighted on the event card).
+                          </p>
+                        </FormField>
+                      </div>
+                    )}
+
                     <FormField label="Max Attendee / Team Capacity">
                       <input
                         type="number"

@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   Plus, Calendar, Users, QrCode, ArrowLeft,
   ChevronRight, Shield, CheckCircle, Clock,
-  Building2, Sparkles, Filter
+  Building2, Sparkles, Filter, Trash2, Loader2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -48,6 +48,27 @@ export default function ClubAdminPortal({
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteEvent = async (eventId: string, eventName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete '${eventName}'? This action cannot be undone.`)) {
+      return;
+    }
+    setDeletingId(eventId);
+    try {
+      const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setEvents(evs => evs.filter(e => e.id !== eventId));
+      } else {
+        alert(json.error || 'Failed to delete event');
+      }
+    } catch {
+      alert('Network error deleting event. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
   const [error, setError] = useState('');
 
   // Fetch club & events
@@ -329,6 +350,15 @@ export default function ClubAdminPortal({
                     >
                       Edit
                     </Link>
+                    <button
+                      onClick={() => handleDeleteEvent(event.id, event.name)}
+                      disabled={deletingId === event.id}
+                      className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 text-xs font-medium px-3 py-2 rounded-xl transition-all disabled:opacity-50"
+                      title="Delete Event"
+                    >
+                      {deletingId === event.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      <span className="hidden sm:inline">Delete</span>
+                    </button>
                   </div>
                 </div>
               ))}

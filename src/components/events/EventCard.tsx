@@ -47,14 +47,20 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
   return (
     <div className="bg-[#0b0716] border border-purple-900/50 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-purple-500/70 transition-all duration-300 group mi-glow-card">
       
-      {/* Image & Badges Banner */}
-      <div className="relative h-44 w-full overflow-hidden bg-slate-950">
+      {/* Image & Badges Banner — Uncropped Showcase */}
+      <div className="relative h-48 w-full overflow-hidden bg-black/95 flex items-center justify-center border-b border-purple-900/30">
+        <img
+          src={event.image}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-125 pointer-events-none"
+        />
         <img
           src={event.image}
           alt={event.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-80 group-hover:opacity-100"
+          className="relative z-10 w-full h-full object-contain p-1.5 group-hover:scale-[1.02] transition-transform duration-300 opacity-90 group-hover:opacity-100"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0b0716] via-[#0b0716]/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0b0716] via-transparent to-transparent pointer-events-none z-10" />
         
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">

@@ -183,10 +183,12 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
   const { isInCart, isConfirmed, toggleCartItem } = useCart();
   const registered = isConfirmed(event.id);
   const inCart = isInCart(event.id);
-
-  const teamLabel = event.min_team_size === event.max_team_size
-    ? event.min_team_size === 1 ? 'Individual' : `${event.min_team_size} Members`
-    : `${event.min_team_size}–${event.max_team_size} Members`;
+  const isTeam = event.max_team_size > 1;
+  const teamLabel = isTeam
+    ? event.min_team_size === event.max_team_size
+      ? `👥 Team of ${event.max_team_size}`
+      : `👥 Team (${event.min_team_size}–${event.max_team_size} members)`
+    : '👤 Individual';
 
   const spotsLeft = event.capacity ? event.capacity - event.enrolled : null;
   const almostFull = spotsLeft !== null && spotsLeft < 20 && spotsLeft > 0;
@@ -218,40 +220,52 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.35 }}
-      className="group bg-white/5 border border-white/10 hover:border-white/20 rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-xl hover:shadow-purple-900/10"
+      className="group bg-white/5 border border-white/10 hover:border-purple-500/50 rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-2xl hover:shadow-purple-900/20"
     >
-      {/* Poster */}
-      <div className="relative h-40 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+      {/* Poster — Full uncropped image with frosted ambient backdrop */}
+      <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-black/90 flex items-center justify-center border-b border-white/5">
         {event.poster_url ? (
-          <img src={event.poster_url} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <>
+            <img
+              src={event.poster_url}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-125 pointer-events-none"
+            />
+            <img
+              src={event.poster_url}
+              alt={event.name}
+              className="relative z-10 w-full h-full object-contain p-1.5 group-hover:scale-[1.02] transition-transform duration-500"
+            />
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <div className="w-16 h-16 rounded-2xl opacity-20" style={{ background: event.club_color }} />
           </div>
         )}
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#05030a]/80 to-transparent" />
+        {/* Subtle bottom gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#05030a]/80 via-transparent to-transparent pointer-events-none z-10" />
         {/* Badges */}
-        <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
+        <div className="absolute top-3 left-3 flex gap-2 flex-wrap z-20">
           {event.is_popular && (
-            <span className="bg-amber-500/90 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-full">🔥 Popular</span>
+            <span className="bg-amber-500/90 text-amber-950 text-xs font-bold px-2 py-0.5 rounded-full shadow">🔥 Popular</span>
           )}
           {almostFull && (
-            <span className="bg-red-500/90 text-white text-xs font-bold px-2 py-0.5 rounded-full">⚡ {spotsLeft} spots left</span>
+            <span className="bg-red-500/90 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">⚡ {spotsLeft} spots left</span>
           )}
           {isFull && (
             <span className="bg-slate-700/90 text-slate-300 text-xs font-bold px-2 py-0.5 rounded-full">Full</span>
           )}
         </div>
         {/* Club tag */}
-        <div className="absolute bottom-3 left-3">
-          <span className="text-xs font-semibold px-2 py-1 rounded-full text-white" style={{ background: `${event.club_color}cc` }}>
+        <div className="absolute bottom-3 left-3 z-20">
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-white shadow-md backdrop-blur-md" style={{ background: `${event.club_color}dd` }}>
             {event.club_name}
           </span>
         </div>
         {/* Fee */}
-        <div className="absolute top-3 right-3">
-          <span className={`text-xs font-bold px-2 py-1 rounded-full ${event.fee === 0 ? 'bg-green-500/80 text-white' : 'bg-black/60 text-white border border-white/20'}`}>
+        <div className="absolute top-3 right-3 z-20">
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-md shadow ${event.fee === 0 ? 'bg-emerald-500/90 text-white' : 'bg-black/75 text-purple-300 border border-purple-500/30'}`}>
             {event.fee === 0 ? 'FREE' : `₹${event.fee}`}
           </span>
         </div>
@@ -260,16 +274,21 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
       {/* Content */}
       <div className="flex flex-col flex-1 p-5">
         <div className="mb-3">
-          <p className="text-xs text-slate-500 font-mono mb-1">{event.event_code} · {event.category}</p>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="text-xs text-slate-500 font-mono">{event.event_code} · {event.category}</p>
+            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-white/5 text-purple-300">
+              {teamLabel}
+            </span>
+          </div>
           <h3 className="text-white font-bold text-base leading-snug group-hover:text-purple-200 transition-colors">{event.name}</h3>
-          {event.tagline && <p className="text-slate-400 text-xs mt-0.5">{event.tagline}</p>}
+          {event.tagline && <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{event.tagline}</p>}
         </div>
 
         {/* Meta */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Users size={12} className="shrink-0" />
-            <span>{teamLabel}</span>
+        <div className="grid grid-cols-2 gap-2 mb-4 pt-1 border-t border-white/5">
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <Users size={12} className="shrink-0 text-purple-400" />
+            <span className="truncate">{teamLabel}</span>
           </div>
           {event.prize_pool && (
             <div className="flex items-center gap-1.5 text-xs text-amber-400">
@@ -278,8 +297,8 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
             </div>
           )}
           {event.venue && (
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 col-span-2">
-              <Calendar size={12} className="shrink-0" />
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 col-span-2">
+              <Calendar size={12} className="shrink-0 text-slate-500" />
               <span className="truncate">{event.venue}</span>
             </div>
           )}
