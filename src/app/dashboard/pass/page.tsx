@@ -212,12 +212,45 @@ export default function StudentPassPage() {
             </div>
           </div>
 
-          {/* Registered Events Footer */}
+          {/* Flagship Inclusions for Outside Delegate Pass */}
+          {!user.is_amrita_student && user.platform_fee_paid && (
+            <div className="bg-gradient-to-r from-purple-950/40 via-pink-950/20 to-black border-t border-purple-500/20 p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-amber-400" />
+                  Flagship Events Included in ₹1000 Pass
+                </h4>
+                <span className="text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 px-2.5 py-0.5 rounded-full">
+                  All 4 Included
+                </span>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {[
+                  { name: 'Live Concert & DJ', icon: '🎵', tag: 'Mega Pronite' },
+                  { name: 'Garba Night', icon: '💃', tag: 'Cultural Celebration' },
+                  { name: 'Auto Expo', icon: '🏎️', tag: 'Supercar Exhibition' },
+                  { name: 'Tholu Bommalata', icon: '🎭', tag: 'Heritage Arts' },
+                ].map(ev => (
+                  <div key={ev.name} className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-xs">
+                    <span className="font-semibold text-white flex items-center gap-2">
+                      <span>{ev.icon}</span>
+                      <span>{ev.name}</span>
+                    </span>
+                    <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                      Pass Access ✓
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Registered Club Events Footer */}
           <div className="bg-black/40 border-t border-white/10 p-6">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                 <Ticket size={14} className="text-purple-400" />
-                Enrolled Events ({confirmedEvents.length})
+                Additional Registered Events ({confirmedEvents.length})
               </h4>
               <Link
                 href="/events"
@@ -231,12 +264,12 @@ export default function StudentPassPage() {
               <p className="text-xs text-slate-500">Loading registrations...</p>
             ) : confirmedEvents.length === 0 ? (
               <div className="bg-white/5 rounded-xl p-4 text-center">
-                <p className="text-xs text-slate-400">No specific event registrations yet.</p>
+                <p className="text-xs text-slate-400">No additional specific club competitions enrolled yet.</p>
                 <Link
                   href="/events"
                   className="mt-2 inline-block text-xs font-semibold text-purple-300 hover:text-purple-200 underline"
                 >
-                  Browse 35+ Hackathons & Competitions →
+                  Browse 35+ Club Competitions, Hackathons &amp; Workshops →
                 </Link>
               </div>
             ) : (

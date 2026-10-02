@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { PoolClient } from 'pg';
 import { db } from '@/lib/db';
-import { getSessionUser } from '@/lib/auth';
+import { getSessionUser, signToken, COOKIE_NAME, COOKIE_OPTIONS } from '@/lib/auth';
 import { success, error, unauthorized, serverError } from '@/lib/apiResponse';
 import crypto from 'crypto';
 
@@ -13,8 +13,6 @@ export async function POST(req: NextRequest) {
 
   try {
     const session = await getSessionUser(req);
-    if (!session) return unauthorized();
-
     const body = await req.json();
     const {
       payment_db_id,
@@ -23,6 +21,20 @@ export async function POST(req: NextRequest) {
       razorpay_signature,
       type,
     } = body;
+
+    let targetUserId = session?.userId;
+
+    if (!targetUserId && (payment_db_id || razorpay_order_id)) {
+      const pRes = await db.query(
+        `SELECT user_id FROM payments WHERE id = $1 OR razorpay_order_id = $2`,
+        [payment_db_id ?? null, razorpay_order_id ?? null]
+      );
+      if (pRes.rows.length > 0) {
+        targetUserId = pRes.rows[0].user_id;
+      }
+    }
+
+    if (!targetUserId) return unauthorized();
 
     const isRealRazorpay =
       !!process.env.RAZORPAY_KEY_ID &&
@@ -73,17 +85,37 @@ export async function POST(req: NextRequest) {
         `UPDATE payments
          SET razorpay_payment_id = $1, razorpay_signature = $2, status = 'paid', updated_at = NOW()
          WHERE (id = $3 OR razorpay_order_id = $4) AND user_id = $5`,
-        [payId, sig, payment_db_id ?? null, razorpay_order_id ?? null, session.userId],
+        [payId, sig, payment_db_id ?? null, razorpay_order_id ?? null, targetUserId],
       );
-      await db.query(
+      const userUpdateRes = await db.query(
         `UPDATE users
-         SET platform_fee_paid = TRUE, platform_payment_id = $1, platform_fee_paid_at = NOW()
-         WHERE id = $2`,
-        [payId, session.userId],
+         SET platform_fee_paid = TRUE, 
+             verification_status = 'verified', 
+             pass_type = 'DELEGATE_PASS_1000', 
+             platform_payment_id = $1, 
+             platform_fee_paid_at = NOW()
+         WHERE id = $2
+         RETURNING id, full_name, email, role, qr_token, verification_status, platform_fee_paid, pass_type`,
+        [payId, targetUserId],
       );
-      return success({
-        message: 'Platform registration complete! You can now register for events.',
+      const updatedUser = userUpdateRes.rows[0];
+
+      const response = success({
+        message: 'Payment of ₹1000 received! Your Official Festival Pass and QR Code have been activated.',
+        user: updatedUser,
+        qr_token: updatedUser?.qr_token,
       });
+
+      if (updatedUser) {
+        const token = await signToken({
+          userId: updatedUser.id,
+          email: updatedUser.email,
+          role: updatedUser.role as 'student' | 'club_admin' | 'super_admin',
+        });
+        response.cookies.set(COOKIE_NAME, token, COOKIE_OPTIONS);
+      }
+
+      return response;
     }
 
     // =========================================================================
@@ -121,7 +153,7 @@ export async function POST(req: NextRequest) {
          FROM payments
          WHERE (id = $1 OR razorpay_order_id = $2) AND user_id = $3
          FOR UPDATE`,
-        [payment_db_id ?? null, razorpay_order_id ?? null, session.userId],
+        [payment_db_id ?? null, razorpay_order_id ?? null, targetUserId],
       );
 
       if (paymentRes.rows.length === 0) {

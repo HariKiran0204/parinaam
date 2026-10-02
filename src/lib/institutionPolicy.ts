@@ -14,8 +14,16 @@ export const RECOGNIZED_INSTITUTION_DOMAINS = [
   'amritanet.edu',
 ];
 
-// Standard non-Amrita platform registration fee in INR
-export const STANDARD_PLATFORM_FEE_INR = 150;
+// Standard non-Amrita platform registration fee in INR (₹1000 fixed pass)
+export const STANDARD_PLATFORM_FEE_INR = 1000;
+
+// Flagship festival events included in the ₹1000 Outside Student Pass
+export const OUTSIDE_STUDENT_INCLUDED_EVENTS = [
+  'Live Concert and DJ',
+  'Garba Night',
+  'Auto Expo',
+  'Tholu Bommalata',
+];
 
 /**
  * Checks if an email address belongs to a recognized institutional domain.
