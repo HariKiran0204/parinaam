@@ -89,8 +89,8 @@ export async function POST(req: NextRequest) {
         return error('Platform fee already paid', 409);
       }
 
-      const rzpKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_Tiu069JKxrr7S3';
-      const rzpSecret = process.env.RAZORPAY_KEY_SECRET || 'pQsgXDk4UCnx0gJu642PnLyT';
+      const rzpKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_Tj1xekDdSGlLZx';
+      const rzpSecret = process.env.RAZORPAY_KEY_SECRET || 'iG7V5PISj2ERvhLFGAD3Wass';
       let rzpOrderId: string;
 
       try {
