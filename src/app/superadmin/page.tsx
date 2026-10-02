@@ -153,7 +153,7 @@ export default function SuperAdminDashboard() {
     setInspectingData(null);
     setInspectingLoading(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}`);
+      const res = await fetch(`/api/admin/users/${userId}?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.data) {
         setInspectingData(data.data);

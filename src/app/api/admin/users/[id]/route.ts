@@ -4,6 +4,9 @@ import { getSessionUser } from '@/lib/auth';
 import { success, error, unauthorized, forbidden, serverError } from '@/lib/apiResponse';
 import { isValidEmail, isValidStudentName } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // GET /api/admin/users/[id] — super admin views complete student details & registration timeline
 export async function GET(
   req: NextRequest,

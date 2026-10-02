@@ -270,7 +270,7 @@ export default function AdminUsersPage() {
     setFullDetail(null);
     setViewLoading(true);
     try {
-      const res = await fetch(`/api/admin/users/${u.id}`);
+      const res = await fetch(`/api/admin/users/${u.id}?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.data) {
         setFullDetail(data.data);
