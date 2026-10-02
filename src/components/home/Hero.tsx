@@ -65,13 +65,6 @@ export const Hero = () => {
           {/* Left Column: Title Typography & CTAs (col-span-6 for balanced split) */}
           <div className="lg:col-span-6 text-left space-y-6">
             
-            {/* Top Tagline Pill */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-950/90 border border-fuchsia-500/50 text-xs font-mono text-purple-200 shadow-purple-glow">
-              <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
-              <span className="font-bold tracking-wider uppercase">AMRITA VISHWA VIDYAPEETHAM • AMARAVATI</span>
-              <span className="text-fuchsia-500">•</span>
-              <span className="text-amber-400 font-bold">OCT 11–12, 2026</span>
-            </div>
 
             {/* Exact Logo Title Typography (Floating with glowing aura) */}
             <div className="relative py-1">
@@ -189,7 +182,7 @@ export const Hero = () => {
 
         {/* Live Ticker & Stats Strip */}
         <div className="pt-10 border-t border-purple-900/50 grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="bg-purple-950/50 p-5 rounded-2xl border border-purple-900/60 text-center hover:border-fuchsia-500/40 transition-colors">
+          <div className="bg-purple-950/50 p-5 rounded-2xl border border-purple-900/60 text-center hover:border-fuchsia-500/40 transition-all duration-200 ease-out hover:-translate-y-1.5">
             <span className="text-xs text-slate-400 uppercase tracking-wider block mb-1.5">
               Fest Countdown
             </span>
@@ -201,7 +194,7 @@ export const Hero = () => {
             </div>
           </div>
 
-          <div className="bg-purple-950/50 p-5 rounded-2xl border border-purple-900/60 text-center hover:border-amber-500/40 transition-colors">
+          <div className="bg-purple-950/50 p-5 rounded-2xl border border-purple-900/60 text-center hover:border-amber-500/40 transition-all duration-200 ease-out hover:-translate-y-1.5">
             <span className="text-xs text-slate-400 uppercase tracking-wider block mb-1.5">
               National Prize Pool
             </span>
@@ -210,7 +203,7 @@ export const Hero = () => {
             </span>
           </div>
 
-          <div className="bg-purple-950/50 p-5 rounded-2xl border border-purple-900/60 text-center hover:border-cyan-500/40 transition-colors">
+          <div className="bg-purple-950/50 p-5 rounded-2xl border border-purple-900/60 text-center hover:border-cyan-500/40 transition-all duration-200 ease-out hover:-translate-y-1.5">
             <span className="text-xs text-slate-400 uppercase tracking-wider block mb-1.5">
               Official Campus Clubs
             </span>
