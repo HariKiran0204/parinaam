@@ -95,8 +95,24 @@ export default function RegisterPage() {
   useEffect(() => {
     if (user && user.platform_fee_paid && !paymentSuccessData) {
       router.push('/dashboard');
+    } else if (user && !user.is_amrita_student && !user.platform_fee_paid && !registeredUserSession) {
+      setRegisteredUserSession(user);
+      setStudentType('other');
+      setForm(f => ({
+        ...f,
+        student_type: 'other',
+        email: user.email || '',
+        full_name: user.full_name || '',
+        phone: user.phone || '',
+        college_name: user.college_name || '',
+        roll_number: user.roll_number || '',
+        department: user.department || '',
+        year_of_study: user.year_of_study || '',
+        city: user.city || '',
+      }));
+      setStep(2);
     }
-  }, [user, router, paymentSuccessData]);
+  }, [user, router, paymentSuccessData, registeredUserSession]);
 
   // Load Razorpay checkout script on mount
   useEffect(() => {

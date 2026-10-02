@@ -23,7 +23,13 @@ export default function LoginPage() {
     if (user) {
       if (user.role === 'super_admin') router.push('/superadmin');
       else if (user.role === 'club_admin') router.push(user.club_slug ? `/admin/${user.club_slug}` : '/admin');
-      else router.push('/dashboard');
+      else {
+        if (!user.is_amrita_student && !user.platform_fee_paid) {
+          router.push('/auth/register');
+        } else {
+          router.push('/dashboard');
+        }
+      }
     }
   }, [user, router]);
 

@@ -2,10 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { FEST_CONFIG } from '../../data/festData';
 import { MapPin, Mail, Phone, ExternalLink, ShieldCheck } from 'lucide-react';
 
 export const Footer = () => {
+  const pathname = usePathname();
+  if (pathname === '/auth/register' || pathname === '/register' || pathname?.startsWith('/auth/register')) {
+    return null;
+  }
+
   return (
     <footer className="bg-[#05080f] border-t border-slate-800 text-slate-400 pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

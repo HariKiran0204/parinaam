@@ -18,6 +18,11 @@ export const Navbar = () => {
   const { user, loading, logout } = useAuth();
   const { cartCount, isCartOpen, openCart, closeCart } = useCart();
 
+  // Completely hide Navbar on registration pages
+  if (pathname === '/auth/register' || pathname === '/register' || pathname?.startsWith('/auth/register')) {
+    return null;
+  }
+
   const isProfileComplete = isStudentProfileComplete(user);
 
   const handleCartClick = () => {
