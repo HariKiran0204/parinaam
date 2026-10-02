@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { isValidEmail } from '@/lib/utils';
 
 export default function LoginPage() {
   const { login, user } = useAuth();
@@ -29,8 +30,19 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const emailTrimmed = email.trim();
+    if (!emailTrimmed) {
+      setError('Please enter your email address');
+      return;
+    }
+    if (!isValidEmail(emailTrimmed)) {
+      setError('Please enter a valid email address (e.g. name@example.com)');
+      return;
+    }
+
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(emailTrimmed, password);
     setLoading(false);
     if (result.success) {
       // role-based redirect handled by useEffect above

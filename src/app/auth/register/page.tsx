@@ -26,6 +26,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { useAuth, RegisterData } from '@/context/AuthContext';
+import { isValidEmail, isValidStudentName, MAX_STUDENT_NAME_LENGTH } from '@/lib/utils';
 
 const AMRITA_DOMAIN = 'av.students.amrita.edu';
 const STEPS = ['Category & Account', 'Student Profile', 'Confirm'];
@@ -121,7 +122,11 @@ export default function RegisterPage() {
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const validateStep0 = () => {
-    if (!form.email.trim()) return 'Email address is required';
+    const emailTrimmed = form.email.trim();
+    if (!emailTrimmed) return 'Email address is required';
+    if (!isValidEmail(emailTrimmed)) {
+      return 'Please enter a valid email address (e.g. name@example.com)';
+    }
     if (isAmritaSelected && !isAmritaEmail) {
       return `Amrita students must use an official Amrita email (@${AMRITA_DOMAIN})`;
     }
@@ -133,7 +138,10 @@ export default function RegisterPage() {
   };
 
   const validateStep1 = () => {
-    if (!form.full_name.trim()) return 'Full name is required';
+    const nameCheck = isValidStudentName(form.full_name);
+    if (!nameCheck.valid) {
+      return nameCheck.error || 'Student name is invalid';
+    }
     const cleanPhone = (form.phone ?? '').replace(/\D/g, '');
     if (!cleanPhone) return 'Phone number is required';
     if (cleanPhone.length !== 10) return 'Phone number must be exactly 10 digits';
@@ -427,12 +435,13 @@ export default function RegisterPage() {
                     </span>
                   </div>
 
-                  <Field label="Full Name (as per Student ID)" icon={<User size={15} />}>
+                  <Field label={`Full Name (as per Student ID, max ${MAX_STUDENT_NAME_LENGTH} chars)`} icon={<User size={15} />}>
                     <input
                       type="text"
                       placeholder="e.g. Rahul Sharma"
                       value={form.full_name}
-                      onChange={e => set('full_name', e.target.value)}
+                      maxLength={MAX_STUDENT_NAME_LENGTH}
+                      onChange={e => set('full_name', e.target.value.slice(0, MAX_STUDENT_NAME_LENGTH))}
                       required
                       className={inputCls}
                     />
