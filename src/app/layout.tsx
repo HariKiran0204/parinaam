@@ -31,7 +31,7 @@ export default function RootLayout({
         />
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       </head>
-      <body className="min-h-screen bg-[#05030a] text-slate-100 antialiased flex flex-col justify-between selection:bg-purple-600 selection:text-white" style={{ cursor: 'none' }}>
+      <body className="min-h-screen bg-[#05030a] text-slate-100 antialiased flex flex-col justify-between selection:bg-purple-600 selection:text-white">
         <CustomCursor />
         <AuthProvider>
           <CartProvider>
