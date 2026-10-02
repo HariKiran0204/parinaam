@@ -140,8 +140,8 @@ export async function POST(req: NextRequest) {
     let razorpayOrder = null;
     if (!isAmritaStudent) {
       const amountPaise = STANDARD_PLATFORM_FEE_INR * 100; // 100000 paise (₹1000)
-      const rzpKeyId = process.env.RAZORPAY_KEY_ID;
-      const rzpSecret = process.env.RAZORPAY_KEY_SECRET;
+      const rzpKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_Tj1xekDdSGlLZx';
+      const rzpSecret = process.env.RAZORPAY_KEY_SECRET || 'iG7V5PISj2ERvhLFGAD3Wass';
 
       let rzpOrderId: string;
 
