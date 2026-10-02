@@ -7,6 +7,7 @@ import { CartProvider } from '../context/CartContext';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { ProfileCompletionModal } from '../components/layout/ProfileCompletionModal';
+import { CustomCursor } from '../components/ui/CustomCursor';
 
 export const metadata: Metadata = {
   title: 'PARINAAM 2026 | Amrita Vishwa Vidyapeetham, Amaravati',
@@ -25,12 +26,13 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=Anek+Devanagari:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Oswald:wght@200;300;400;500&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=Anek+Devanagari:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap"
           rel="stylesheet"
         />
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       </head>
-      <body className="min-h-screen bg-[#05030a] text-slate-100 antialiased flex flex-col justify-between selection:bg-purple-600 selection:text-white">
+      <body className="min-h-screen bg-[#05030a] text-slate-100 antialiased flex flex-col justify-between selection:bg-purple-600 selection:text-white" style={{ cursor: 'none' }}>
+        <CustomCursor />
         <AuthProvider>
           <CartProvider>
             <FestProvider>

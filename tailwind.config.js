@@ -50,7 +50,8 @@ module.exports = {
         }
       },
       fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        sans: ['Oswald', 'var(--font-gothic)', 'system-ui', 'sans-serif'],
+        gothic: ['Oswald', 'var(--font-gothic)', 'sans-serif'],
         display: ['var(--font-pixel)', 'var(--font-display)', 'monospace', 'sans-serif'],
         pixel: ['var(--font-pixel)', 'Silkscreen', 'monospace'],
         devanagari: ['var(--font-devanagari)', 'sans-serif'],
