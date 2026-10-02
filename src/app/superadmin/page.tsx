@@ -225,6 +225,12 @@ export default function SuperAdminDashboard() {
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} /> Refresh
             </button>
             <Link
+              href="/superadmin/scan"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-purple-900/30"
+            >
+              <QrCode size={14} /> QR Scanner
+            </Link>
+            <Link
               href="/superadmin/users"
               className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all"
             >
@@ -232,7 +238,7 @@ export default function SuperAdminDashboard() {
             </Link>
             <Link
               href="/superadmin/settings"
-              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-purple-900/30"
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all"
             >
               <Settings size={14} /> Platform Config
             </Link>
@@ -286,18 +292,18 @@ export default function SuperAdminDashboard() {
             {/* Primary KPI Ribbon */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { label: 'Total Students', value: overview?.total_students ?? '—', sub: 'All Registered', color: 'text-purple-400' },
-                { label: 'Amrita Amaravati', value: overview?.amrita_students ?? '—', sub: 'Free Passes', color: 'text-fuchsia-400' },
-                { label: 'External Students', value: overview?.external_students ?? '—', sub: 'National Reach', color: 'text-cyan-400' },
-                { label: 'Active Events', value: overview?.total_events ?? '—', sub: 'Across 12 Clubs', color: 'text-blue-400' },
-                { label: 'Gate Check-ins', value: overview?.total_checkins ?? '—', sub: 'QR Scans Done', color: 'text-emerald-400' },
-                { label: 'Total Revenue', value: `₹${overview?.total_revenue_inr ?? 0}`, sub: 'Paid Workshops', color: 'text-amber-400' },
+                { label: 'Total Students', value: overview?.total_students ?? '—', sub: 'All Registered', color: 'text-purple-400', href: '/superadmin/users' },
+                { label: 'Amrita Amaravati', value: overview?.amrita_students ?? '—', sub: 'Free Passes', color: 'text-fuchsia-400', href: '/superadmin/users' },
+                { label: 'External Students', value: overview?.external_students ?? '—', sub: 'National Reach', color: 'text-cyan-400', href: '/superadmin/users' },
+                { label: 'Active Events', value: overview?.total_events ?? '—', sub: 'Across 12 Clubs', color: 'text-blue-400', href: '/events' },
+                { label: 'Gate Check-ins', value: overview?.total_checkins ?? '—', sub: 'QR Scans Done', color: 'text-emerald-400', href: '/superadmin/scan' },
+                { label: 'Total Revenue', value: `₹${overview?.total_revenue_inr ?? 0}`, sub: 'Paid Workshops', color: 'text-amber-400', href: '/superadmin/users' },
               ].map(kpi => (
-                <div key={kpi.label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <Link key={kpi.label} href={kpi.href} className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 rounded-2xl p-4 transition-all block">
                   <p className="text-slate-400 text-xs font-medium">{kpi.label}</p>
                   <p className={`text-2xl font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">{kpi.sub}</p>
-                </div>
+                </Link>
               ))}
             </div>
 

@@ -13,11 +13,10 @@ export const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
-  const { cartCount } = useCart();
+  const { user, loading, logout } = useAuth();
+  const { cartCount, isCartOpen, openCart, closeCart } = useCart();
 
   const isProfileComplete = isStudentProfileComplete(user);
 
@@ -27,9 +26,8 @@ export const Navbar = () => {
       router.push('/dashboard/profile');
       return;
     }
-    setCartOpen(true);
+    openCart();
   };
-
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -52,6 +50,7 @@ export const Navbar = () => {
           { name: 'EVENTS', href: '/events' },
           { name: 'SCHEDULE', href: '/schedule' },
           { name: 'GALLERY', href: '/#gallery' },
+          { name: 'SPONSORS', href: '/#sponsors' },
         ]
       : user.role === 'super_admin'
       ? [
@@ -59,19 +58,25 @@ export const Navbar = () => {
           { name: 'ALL USERS', href: '/superadmin/users' },
           { name: 'EVENTS', href: '/events' },
           { name: 'SCHEDULE', href: '/schedule' },
-          { name: 'GALLERY', href: '/#gallery' },
+        ]
+      : user.role === 'club_admin'
+      ? [
+          { name: 'CLUB PORTAL', href: `/admin/${user.club_slug || 'chakravyuha'}` },
+          { name: 'QR SCANNER', href: `/admin/${user.club_slug || 'chakravyuha'}/scan` },
+          { name: 'EVENTS', href: '/events' },
+          { name: 'SCHEDULE', href: '/schedule' },
         ]
       : [
-          { name: 'CLUB PORTAL', href: `/admin/${user.club_slug || 'chakravyuha'}` },
           { name: 'EVENTS', href: '/events' },
           { name: 'SCHEDULE', href: '/schedule' },
           { name: 'GALLERY', href: '/#gallery' },
+          { name: 'SPONSORS', href: '/#sponsors' },
         ]
     : [
         { name: 'EVENTS', href: '/events' },
         { name: 'SCHEDULE', href: '/schedule' },
         { name: 'GALLERY', href: '/#gallery' },
-        { name: 'SPONSORS', href: '/sponsor' },
+        { name: 'SPONSORS', href: '/#sponsors' },
       ];
 
   const dashboardHref =
@@ -130,25 +135,29 @@ export const Navbar = () => {
 
             {/* Right — Auth & Cart area */}
             <div className="hidden lg:flex items-center gap-3 shrink-0">
-              {/* Cart Button */}
-              <button
-                onClick={handleCartClick}
-                className="relative p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 text-slate-300 hover:text-white transition-all flex items-center justify-center"
-                title={user && user.role === 'student' && !isProfileComplete ? "Complete profile to unlock cart" : "Registration Cart"}
-              >
-                {user && user.role === 'student' && !isProfileComplete ? (
-                  <Lock size={18} className="text-amber-400" />
-                ) : (
-                  <ShoppingBag size={18} />
-                )}
-                {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#05030a] shadow-fest-brand">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
+              {/* Cart Button: Rendered ONLY for logged-in students */}
+              {!loading && user && user.role === 'student' && (
+                <button
+                  onClick={handleCartClick}
+                  className="relative p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 text-slate-300 hover:text-white transition-all flex items-center justify-center"
+                  title={!isProfileComplete ? "Complete profile to unlock cart" : "Registration Cart"}
+                >
+                  {!isProfileComplete ? (
+                    <Lock size={18} className="text-amber-400" />
+                  ) : (
+                    <ShoppingBag size={18} />
+                  )}
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-purple-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#05030a] shadow-fest-brand">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
-              {user ? (
+              {loading ? (
+                <div className="w-24 h-9 bg-white/5 rounded-xl animate-pulse" />
+              ) : user ? (
                 <div className="relative" onClick={e => e.stopPropagation()}>
                   <button onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 text-white text-sm font-medium transition-all">
@@ -178,6 +187,36 @@ export const Navbar = () => {
                           className="flex items-center gap-3 px-4 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 text-sm transition-colors">
                           <DashIcon size={15} className="text-purple-400" /> {dashboardLabel}
                         </Link>
+
+                        {user.role === 'super_admin' && (
+                          <>
+                            <Link href="/superadmin/scan" onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 text-sm transition-colors">
+                              <span className="text-cyan-400 text-xs font-bold">QR</span> Universal Gate Scanner
+                            </Link>
+                            <Link href="/superadmin/users" onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 text-sm transition-colors">
+                              <User size={15} className="text-purple-400" /> User Management & KYC
+                            </Link>
+                            <Link href="/superadmin/settings" onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 text-sm transition-colors">
+                              <Shield size={15} className="text-slate-400" /> Platform Settings
+                            </Link>
+                          </>
+                        )}
+
+                        {user.role === 'club_admin' && (
+                          <>
+                            <Link href={`/admin/${user.club_slug || 'chakravyuha'}/scan`} onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 text-sm transition-colors">
+                              <span className="text-cyan-400 text-xs font-bold">QR</span> Attendance Scanner
+                            </Link>
+                            <Link href={`/admin/${user.club_slug || 'chakravyuha'}/events/new`} onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 text-sm transition-colors">
+                              <span className="text-purple-400 text-xs font-bold">+</span> Create New Event
+                            </Link>
+                          </>
+                        )}
 
                         {user.role === 'student' && (
                           <>
@@ -218,29 +257,31 @@ export const Navbar = () => {
 
             {/* Mobile toggle */}
             <div className="flex lg:hidden items-center gap-2">
-              <button
-                onClick={handleCartClick}
-                className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300"
-                title={user && user.role === 'student' && !isProfileComplete ? "Complete profile to unlock cart" : "Registration Cart"}
-              >
-                {user && user.role === 'student' && !isProfileComplete ? (
-                  <Lock size={18} className="text-amber-400" />
-                ) : (
-                  <ShoppingBag size={18} />
-                )}
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-purple-600 text-white text-[9px] font-bold flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-              {!user && (
+              {!loading && user && user.role === 'student' && (
+                <button
+                  onClick={handleCartClick}
+                  className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-slate-300"
+                  title={!isProfileComplete ? "Complete profile to unlock cart" : "Registration Cart"}
+                >
+                  {!isProfileComplete ? (
+                    <Lock size={18} className="text-amber-400" />
+                  ) : (
+                    <ShoppingBag size={18} />
+                  )}
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-purple-600 text-white text-[9px] font-bold flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              {!loading && !user && (
                 <Link href="/auth/register"
                   className="px-3.5 py-1.5 rounded-lg bg-fuchsia-600 text-white text-xs font-bold uppercase tracking-wider">
                   Register
                 </Link>
               )}
-              {user && (
+              {!loading && user && (
                 <Link href={dashboardHref}
                   className="px-3.5 py-1.5 rounded-lg bg-purple-700/50 border border-purple-600/50 text-white text-xs font-bold">
                   {((user.full_name || user.email || 'U').charAt(0)).toUpperCase()}
@@ -298,9 +339,11 @@ export const Navbar = () => {
         )}
       </header>
 
-      {/* Cart Drawer Component */}
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+      {!loading && user && user.role === 'student' && (
+        <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
+      )}
     </>
   );
 };
+
 

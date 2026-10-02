@@ -6,6 +6,8 @@ import { Search, Filter, X, Loader2, Calendar, Users, IndianRupee, Trophy, Chevr
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { isStudentProfileComplete } from '@/lib/institutionPolicy';
 
 interface Club { id: string; name: string; slug: string; color: string; event_count: string; }
 interface Event {
@@ -178,6 +180,10 @@ export default function EventsPage() {
 
 function EventCard({ event, index, user }: { event: Event; index: number; user: ReturnType<typeof useAuth>['user'] }) {
   const router = useRouter();
+  const { isInCart, isConfirmed, toggleCartItem } = useCart();
+  const registered = isConfirmed(event.id);
+  const inCart = isInCart(event.id);
+
   const teamLabel = event.min_team_size === event.max_team_size
     ? event.min_team_size === 1 ? 'Individual' : `${event.min_team_size} Members`
     : `${event.min_team_size}–${event.max_team_size} Members`;
@@ -186,9 +192,25 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
   const almostFull = spotsLeft !== null && spotsLeft < 20 && spotsLeft > 0;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
 
-  const handleRegister = () => {
-    if (!user) { router.push(`/auth/register`); return; }
-    router.push(`/events/${event.id}`);
+  const isAdmin = user?.role === 'club_admin' || user?.role === 'super_admin';
+  const isStudent = user?.role === 'student';
+  const isProfileComplete = isStudentProfileComplete(user);
+
+  const isRegistrationOpen = event.status === 'published' ? (event.registration_open ?? true) : Boolean(event.registration_open);
+
+  const handleInterestedClick = () => {
+    if (!user) {
+      router.push('/auth/login?redirect=/events');
+      return;
+    }
+    if (isStudent && !isProfileComplete) {
+      alert('Please complete your platform registration profile before choosing events.');
+      router.push('/dashboard/profile');
+      return;
+    }
+    if (isStudent) {
+      toggleCartItem(event.id, event.name);
+    }
   };
 
   return (
@@ -269,18 +291,35 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
             className="flex-1 text-center text-sm font-semibold py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all">
             Details
           </Link>
-          <button
-            onClick={handleRegister}
-            disabled={isFull || !event.registration_open}
-            className={`flex-1 text-center text-sm font-semibold py-2 rounded-xl transition-all ${
-              isFull || !event.registration_open
-                ? 'bg-white/5 text-slate-600 cursor-not-allowed'
-                : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-900/20'
-            }`}>
-            {isFull ? 'Full' : !event.registration_open ? 'Closed' : "I'm Interested"}
-          </button>
+          {!isAdmin && (
+            registered ? (
+              <span className="flex-1 text-center text-xs font-bold font-mono py-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                You're registered!
+              </span>
+            ) : (
+              <button
+                onClick={handleInterestedClick}
+                disabled={isFull || !isRegistrationOpen}
+                className={`flex-1 text-center text-sm font-semibold py-2 rounded-xl transition-all ${
+                  isFull || !isRegistrationOpen
+                    ? 'bg-white/5 text-slate-600 cursor-not-allowed'
+                    : inCart && isStudent
+                      ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-900/20'
+                      : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-900/20'
+                }`}>
+                {isFull
+                  ? 'Full'
+                  : !isRegistrationOpen
+                    ? 'Closed'
+                    : inCart && isStudent
+                      ? '✓ Interested'
+                      : "I'm Interested"}
+              </button>
+            )
+          )}
         </div>
       </div>
     </motion.div>
   );
+
 }

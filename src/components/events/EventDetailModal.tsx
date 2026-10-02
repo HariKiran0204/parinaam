@@ -7,17 +7,45 @@ import { formatCurrency } from '../../lib/utils';
 import { useFest } from '../../context/FestContext';
 import Link from 'next/link';
 
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { useRouter } from 'next/navigation';
+import { isStudentProfileComplete } from '@/lib/institutionPolicy';
+
 interface EventDetailModalProps {
   event: FestEvent | null;
   onClose: () => void;
-  onRegister: (event: FestEvent) => void;
+  onRegister?: (event: FestEvent) => void;
 }
 
-export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClose, onRegister }) => {
-  const { isEventRegistered } = useFest();
+export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClose }) => {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { isInCart, isConfirmed, toggleCartItem } = useCart();
   if (!event) return null;
 
-  const registered = isEventRegistered(event.id);
+  const registered = isConfirmed(event.id);
+  const inCart = isInCart(event.id);
+  const isAdmin = user?.role === 'club_admin' || user?.role === 'super_admin';
+  const isStudent = user?.role === 'student';
+  const isProfileComplete = isStudentProfileComplete(user);
+
+  const handleInterestedClick = () => {
+    if (!user) {
+      onClose();
+      router.push('/auth/login?redirect=/events');
+      return;
+    }
+    if (isStudent && !isProfileComplete) {
+      alert('Please complete your platform registration profile before choosing events.');
+      onClose();
+      router.push('/dashboard/profile');
+      return;
+    }
+    if (isStudent) {
+      toggleCartItem(event.id);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
@@ -168,22 +196,35 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClo
             <span>Download Official Rulebook (PDF)</span>
           </button>
 
-          {registered ? (
-            <div className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-sm font-bold font-mono flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>You are Registered for this Event</span>
-            </div>
+          {!isAdmin ? (
+            registered ? (
+              <div className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-sm font-bold font-mono flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>You're registered!</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleInterestedClick}
+                className={`w-full sm:w-auto px-8 py-3 rounded-xl text-white text-sm font-bold shadow-fest-brand flex items-center justify-center gap-2 transition-all ${
+                  inCart && isStudent
+                    ? 'bg-pink-600 hover:bg-pink-500 border border-pink-500'
+                    : 'bg-primary hover:bg-primary-hover'
+                }`}
+              >
+                <Ticket className="w-4 h-4" />
+                <span>
+                  {!user
+                    ? "Sign in to Register"
+                    : !isProfileComplete
+                      ? "Complete Profile to Register"
+                      : inCart
+                        ? "✓ Interested"
+                        : "I'm Interested"}
+                </span>
+              </button>
+            )
           ) : (
-            <button
-              onClick={() => {
-                onClose();
-                onRegister(event);
-              }}
-              className="w-full sm:w-auto px-8 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-bold shadow-fest-brand flex items-center justify-center gap-2 transition-all"
-            >
-              <Ticket className="w-4 h-4" />
-              <span>Register For Event ({formatCurrency(event.fee)})</span>
-            </button>
+            <span className="text-purple-300 text-xs font-mono">Viewing in Admin Mode</span>
           )}
         </div>
 
@@ -191,3 +232,4 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClo
     </div>
   );
 };
+

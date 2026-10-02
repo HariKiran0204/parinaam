@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,32 +24,67 @@ import {
   ShieldCheck,
   IdCard,
   MapPin,
+  CreditCard,
+  Music,
+  Flame,
+  Car,
+  Theater,
+  Check,
+  Loader2,
+  QrCode,
 } from 'lucide-react';
 import { useAuth, RegisterData } from '@/context/AuthContext';
+import { QRCodeSVG } from 'qrcode.react';
+import { isValidEmail, isValidStudentName, MAX_STUDENT_NAME_LENGTH } from '@/lib/utils';
 
 const AMRITA_DOMAIN = 'av.students.amrita.edu';
-const STEPS = ['Category & Account', 'Student Profile', 'Confirm'];
+const STEPS = ['Category & Account', 'Student Profile', 'Pass & Payment'];
+
+const INCLUDED_FLAGSHIP_EVENTS = [
+  { name: 'Live Concert & DJ', icon: Music, desc: 'Mega pronite musical performance & EDM concert' },
+  { name: 'Garba Night', icon: Flame, desc: 'High-energy cultural Garba dance celebration' },
+  { name: 'Auto Expo', icon: Car, desc: 'Supercar & performance vehicle exhibition' },
+  { name: 'Tholu Bommalata', icon: Theater, desc: 'Heritage shadow puppetry & traditional arts showcase' },
+];
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export default function RegisterPage() {
-  const { register, user } = useAuth();
+  const { register, user, refreshUser } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [studentType, setStudentType] = useState<'amrita' | 'other'>('amrita');
+  const [studentType, setStudentType] = useState<'amrita' | 'other'>('other');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const [idCardPreview, setIdCardPreview] = useState<string>('');
-  const [registrationDone, setRegistrationDone] = useState(false);
-  const [needsIdUpload, setNeedsIdUpload] = useState(false);
+
+  // Payment & Pass state
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentSuccessData, setPaymentSuccessData] = useState<{
+    qrToken: string;
+    studentName: string;
+    amount: number;
+  } | null>(null);
+
+  const [registeredUserSession, setRegisteredUserSession] = useState<any>(null);
+  const [pendingRazorpayOrder, setPendingRazorpayOrder] = useState<any>(null);
 
   const [form, setForm] = useState<RegisterData & { confirmPassword: string }>({
-    student_type: 'amrita',
+    student_type: 'other',
     email: '',
     password: '',
     confirmPassword: '',
     full_name: '',
     phone: '',
-    college_name: 'Amrita Vishwa Vidyapeetham, Amaravati',
+    college_name: '',
     roll_number: '',
     department: '',
     year_of_study: '',
@@ -57,9 +92,22 @@ export default function RegisterPage() {
     id_card_url: '',
   });
 
-  React.useEffect(() => {
-    if (user) router.push('/dashboard');
-  }, [user, router]);
+  useEffect(() => {
+    if (user && user.platform_fee_paid && !paymentSuccessData) {
+      router.push('/dashboard');
+    }
+  }, [user, router, paymentSuccessData]);
+
+  // Load Razorpay checkout script on mount
+  useEffect(() => {
+    if (!document.getElementById('razorpay-checkout-script')) {
+      const script = document.createElement('script');
+      script.id = 'razorpay-checkout-script';
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
 
   const handleStudentTypeChange = (type: 'amrita' | 'other') => {
     setStudentType(type);
@@ -121,7 +169,11 @@ export default function RegisterPage() {
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const validateStep0 = () => {
-    if (!form.email.trim()) return 'Email address is required';
+    const emailTrimmed = form.email.trim();
+    if (!emailTrimmed) return 'Email address is required';
+    if (!isValidEmail(emailTrimmed)) {
+      return 'Please enter a valid email address (e.g. name@example.com)';
+    }
     if (isAmritaSelected && !isAmritaEmail) {
       return `Amrita students must use an official Amrita email (@${AMRITA_DOMAIN})`;
     }
@@ -133,7 +185,10 @@ export default function RegisterPage() {
   };
 
   const validateStep1 = () => {
-    if (!form.full_name.trim()) return 'Full name is required';
+    const nameCheck = isValidStudentName(form.full_name);
+    if (!nameCheck.valid) {
+      return nameCheck.error || 'Student name is invalid';
+    }
     const cleanPhone = (form.phone ?? '').replace(/\D/g, '');
     if (!cleanPhone) return 'Phone number is required';
     if (cleanPhone.length !== 10) return 'Phone number must be exactly 10 digits';
@@ -146,79 +201,238 @@ export default function RegisterPage() {
       if (!(form.roll_number ?? '').trim()) return 'Roll / Student ID Number is required';
       if (!(form.department ?? '').trim()) return 'Branch / Department name is required';
       if (!(form.city ?? '').trim()) return 'City / Location is required';
+      if (!idCardPreview && !idCardFile) return 'Please upload your College ID card photo';
     }
     if (!form.year_of_study) return 'Please select your Year of Study';
     return '';
   };
 
-  const next = () => {
+  const next = async () => {
     const err = step === 0 ? validateStep0() : step === 1 ? validateStep1() : '';
     if (err) {
       setError(err);
       return;
     }
     setError('');
-    setStep(s => s + 1);
-  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+    // If moving from Step 1 to Step 2, register the account in background to prepare order
+    if (step === 1 && !registeredUserSession) {
+      setLoading(true);
+      const { confirmPassword, ...data } = form;
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          phone: (data.phone || '').replace(/\D/g, '').slice(0, 10),
+          student_type: studentType,
+          college_name: isAmritaSelected ? 'Amrita Vishwa Vidyapeetham, Amaravati' : data.college_name,
+          id_card_url: idCardPreview || undefined,
+        }),
+      });
 
-    if (!isAmritaSelected && !idCardPreview && !idCardFile) {
-      setError('Please upload your college/university ID card photo before submitting');
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch {
+        json = { success: false, error: 'Registration server error. Please try again.' };
+      }
+      setLoading(false);
+
+      if (json.success && json.data) {
+        setRegisteredUserSession(json.data.user);
+        setPendingRazorpayOrder(json.data.razorpay_order);
+
+        // If Amrita student (free pass), complete immediately!
+        if (isAmritaSelected) {
+          setPaymentSuccessData({
+            qrToken: json.data.user.qr_token,
+            studentName: json.data.user.full_name,
+            amount: 0,
+          });
+          refreshUser();
+          return;
+        }
+
+        setStep(2);
+      } else {
+        setError(json.error || 'Registration failed. Please verify your details.');
+      }
       return;
     }
 
-    setLoading(true);
-
-    const { confirmPassword, ...data } = form;
-    const result = await register({
-      ...data,
-      phone: (data.phone || '').replace(/\D/g, '').slice(0, 10),
-      student_type: studentType,
-      college_name: isAmritaSelected ? 'Amrita Vishwa Vidyapeetham, Amaravati' : data.college_name,
-      id_card_url: idCardPreview || undefined,
-    });
-
-    if (result.success) {
-      setNeedsIdUpload(result.needs_id_upload ?? false);
-      setRegistrationDone(true);
-    } else {
-      setError(result.error || 'Registration failed');
-    }
-    setLoading(false);
+    setStep(s => s + 1);
   };
 
-  if (registrationDone) {
+  // Launch Razorpay for ₹1000 Outside Student Pass
+  const handleRazorpayPayment = async () => {
+    setError('');
+    setPaymentProcessing(true);
+
+    let rzpOrder = pendingRazorpayOrder;
+    if (!rzpOrder || !rzpOrder.order_id || !rzpOrder.order_id.startsWith('order_')) {
+      try {
+        const orderRes = await fetch('/api/payments/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'platform_fee' }),
+        });
+        const orderJson = await orderRes.json();
+        if (orderJson.success && orderJson.data && orderJson.data.order_id) {
+          rzpOrder = orderJson.data;
+          setPendingRazorpayOrder(rzpOrder);
+        } else {
+          setError(orderJson.error || 'Failed to create payment order. Please try again.');
+          setPaymentProcessing(false);
+          return;
+        }
+      } catch {
+        setError('Network error connecting to payment gateway. Please try again.');
+        setPaymentProcessing(false);
+        return;
+      }
+    }
+
+    const rzpKey = rzpOrder?.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_Tj1xekDdSGlLZx';
+
+    if (typeof window.Razorpay === 'undefined') {
+      setError('Payment gateway is loading. Please try again in a few seconds.');
+      setPaymentProcessing(false);
+      return;
+    }
+
+    const options = {
+      key: rzpKey,
+      amount: rzpOrder?.amount || 100000, // 100000 paise = ₹1000
+      currency: 'INR',
+      name: 'PARINAAM 2026',
+      description: 'Official Festival Pass (Includes 4 Flagship Events)',
+      order_id: rzpOrder?.order_id,
+      prefill: {
+        name: form.full_name || registeredUserSession?.full_name || '',
+        email: form.email || registeredUserSession?.email || '',
+        contact: form.phone || registeredUserSession?.phone || '',
+      },
+      theme: {
+        color: '#9333ea',
+      },
+      handler: async function (response: any) {
+        try {
+          const verifyRes = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              payment_db_id: rzpOrder?.payment_db_id,
+              razorpay_order_id: response.razorpay_order_id || rzpOrder?.order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              type: 'platform_fee',
+            }),
+          });
+
+          const verifyData = await verifyRes.json();
+          setPaymentProcessing(false);
+
+          if (verifyData.success) {
+            setPaymentSuccessData({
+              qrToken: verifyData.data?.qr_token || registeredUserSession?.qr_token || registeredUserSession?.id,
+              studentName: form.full_name || registeredUserSession?.full_name || 'Student',
+              amount: 1000,
+            });
+            refreshUser();
+          } else {
+            setError(verifyData.error || 'Payment verification failed. Please contact support.');
+          }
+        } catch {
+          setPaymentProcessing(false);
+          setError('Network error verifying payment. Please refresh your dashboard.');
+        }
+      },
+      modal: {
+        ondismiss: function () {
+          setPaymentProcessing(false);
+        },
+      },
+    };
+
+    try {
+      const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.on('payment.failed', function (resp: any) {
+        setPaymentProcessing(false);
+        setError(`Payment failed: ${resp?.error?.description || 'Transaction declined'}`);
+      });
+      razorpayInstance.open();
+    } catch (err: any) {
+      setPaymentProcessing(false);
+      setError('Could not open payment window. Please try again.');
+    }
+  };
+
+  // SUCCESS SCREEN (Payment Verified & QR Generated)
+  if (paymentSuccessData) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-[#05030a] relative overflow-hidden py-12">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/15 rounded-full blur-[140px] pointer-events-none" />
 
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-8 text-center backdrop-blur-xl relative z-10"
+          className="w-full max-w-md bg-gradient-to-b from-[#180d2b] to-[#0a0515] border border-purple-500/40 rounded-3xl p-6 sm:p-8 text-center backdrop-blur-2xl relative z-10 shadow-2xl shadow-purple-950/60 space-y-5"
         >
-          <div className="w-16 h-16 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="text-purple-400" size={32} />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Registration Submitted!</h2>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold mb-4">
-            <AlertTriangle size={14} /> Waiting for Approval
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-lg shadow-emerald-950/50">
+            <CheckCircle className="text-emerald-400" size={34} />
           </div>
 
-          <p className="text-slate-300 mb-6 text-xs leading-relaxed">
-            Your student profile has been created successfully and is currently waiting for approval. Once approved, your digital festival QR pass and event registrations will be activated automatically.
-          </p>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+              Registration &amp; Pass Active
+            </span>
+            <h2 className="text-2xl font-extrabold text-white mt-2">Welcome to Parinaam 2026!</h2>
+            <p className="text-slate-300 text-xs mt-1">
+              Hi <strong>{paymentSuccessData.studentName}</strong>, your festival pass has been activated successfully!
+            </p>
+          </div>
 
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-purple-900/30 text-sm"
-          >
-            Go to Student Dashboard →
-          </button>
+          {/* Generated Pass QR Code Display */}
+          <div className="p-4 bg-white rounded-2xl max-w-[200px] mx-auto shadow-xl">
+            <QRCodeSVG
+              value={paymentSuccessData.qrToken}
+              size={170}
+              level="H"
+              includeMargin={false}
+              className="w-full h-auto"
+            />
+          </div>
+
+          {/* Included Flagship Events confirmation */}
+          {!isAmritaSelected && (
+            <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-left space-y-1.5">
+              <p className="text-[11px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles size={12} /> Included in your ₹1000 Pass:
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-200">
+                <span>🎵 Live Concert &amp; DJ</span>
+                <span>💃 Garba Night</span>
+                <span>🏎️ Auto Expo</span>
+                <span>🎭 Tholu Bommalata</span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2 pt-2">
+            <Link
+              href="/dashboard/pass"
+              className="w-full bg-gradient-to-r from-purple-600 via-purple-500 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-purple-900/40 text-sm flex items-center justify-center gap-2 block active:scale-95"
+            >
+              <QrCode size={16} /> View Digital Festival Pass →
+            </Link>
+            <Link
+              href="/events"
+              className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white font-semibold py-3 rounded-xl transition-all text-xs flex items-center justify-center gap-2 block"
+            >
+              Explore Club Competitions &amp; Workshops
+            </Link>
+          </div>
         </motion.div>
       </div>
     );
@@ -231,7 +445,7 @@ export default function RegisterPage() {
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg relative z-10"
+        className="w-full max-w-xl relative z-10"
       >
         {/* Header */}
         <div className="text-center mb-6">
@@ -240,7 +454,7 @@ export default function RegisterPage() {
               PARINAAM
             </span>
           </Link>
-          <p className="text-slate-400 mt-1 text-sm">Fest Registration Portal</p>
+          <p className="text-slate-400 mt-1 text-sm">Fest Registration &amp; Pass Portal</p>
         </div>
 
         {/* Steps indicator */}
@@ -267,7 +481,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Card Container */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -279,520 +493,517 @@ export default function RegisterPage() {
             </motion.div>
           )}
 
-          <form onSubmit={step === 2 ? handleSubmit : (e) => { e.preventDefault(); next(); }}>
-            <AnimatePresence mode="wait">
-              {/* STEP 0: Category Choice + Account Credentials */}
-              {step === 0 && (
-                <motion.div
-                  key="step0"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-5"
-                >
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                      Select Your Student Category
-                    </label>
-                    
-                    {/* Student Type Selector Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                      {/* Option 1: Amrita Student */}
-                      <button
-                        type="button"
-                        onClick={() => handleStudentTypeChange('amrita')}
-                        className={`relative text-left p-4 rounded-xl border transition-all ${
-                          isAmritaSelected
-                            ? 'bg-purple-600/20 border-purple-500 text-white shadow-lg shadow-purple-600/20 ring-1 ring-purple-500'
-                            : 'bg-white/[0.03] border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className={`p-2 rounded-lg ${isAmritaSelected ? 'bg-purple-500/30 text-purple-300' : 'bg-white/5 text-slate-400'}`}>
-                            <School size={18} />
-                          </div>
-                          {isAmritaSelected && (
-                            <span className="flex h-2 w-2 relative">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="font-semibold text-sm text-slate-100">Amrita Student</h4>
-                        <p className="text-xs text-slate-400 mt-1">Amrita Vishwa Vidyapeetham</p>
-                        <div className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
-                          <Sparkles size={10} /> Campus Delegate
-                        </div>
-                      </button>
-
-                      {/* Option 2: Other College Student */}
-                      <button
-                        type="button"
-                        onClick={() => handleStudentTypeChange('other')}
-                        className={`relative text-left p-4 rounded-xl border transition-all ${
-                          !isAmritaSelected
-                            ? 'bg-purple-600/20 border-purple-500 text-white shadow-lg shadow-purple-600/20 ring-1 ring-purple-500'
-                            : 'bg-white/[0.03] border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className={`p-2 rounded-lg ${!isAmritaSelected ? 'bg-purple-500/30 text-purple-300' : 'bg-white/5 text-slate-400'}`}>
-                            <Building2 size={18} />
-                          </div>
-                          {!isAmritaSelected && (
-                            <span className="flex h-2 w-2 relative">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="font-semibold text-sm text-slate-100">Other College</h4>
-                        <p className="text-xs text-slate-400 mt-1">Other Colleges & Universities</p>
-                        <div className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
-                          <IdCard size={10} /> ID Card Verification
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-white/10 pt-4 space-y-4">
-                    {/* Email Input */}
-                    <Field
-                      label={isAmritaSelected ? 'Amrita College Email (@av.students.amrita.edu)' : 'Email Address'}
-                      icon={<Mail size={15} />}
+          <AnimatePresence mode="wait">
+            {/* STEP 0: Category Choice + Account Credentials */}
+            {step === 0 && (
+              <motion.div
+                key="step0"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-5"
+              >
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                    Select Your Student Category
+                  </label>
+                  
+                  {/* Student Type Selector Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                    {/* Option 1: Outside College Student */}
+                    <div
+                      onClick={() => handleStudentTypeChange('other')}
+                      className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
+                        !isAmritaSelected
+                          ? 'bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30 shadow-lg'
+                          : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                      }`}
                     >
-                      <input
-                        type="email"
-                        placeholder={isAmritaSelected ? 'username@av.students.amrita.edu' : 'you@example.com'}
-                        value={form.email}
-                        onChange={e => set('email', e.target.value)}
-                        required
-                        className={inputCls}
-                      />
-                    </Field>
-
-                    {/* Dynamic Email Guide / Status */}
-                    {isAmritaSelected ? (
-                      <div className={`text-xs flex items-start gap-1.5 px-3 py-2 rounded-lg ${
-                        isAmritaEmail
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-                      }`}>
-                        {isAmritaEmail ? (
-                          <>
-                            <CheckCircle size={14} className="shrink-0 mt-0.5 text-emerald-400" />
-                            <span>Valid Amrita Student email. Auto-verification enabled.</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle size={14} className="shrink-0 mt-0.5 text-purple-400" />
-                            <span>Must be your official Amrita college email ending with <strong>@{AMRITA_DOMAIN}</strong></span>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 text-slate-400 border border-white/10">
-                        <IdCard size={14} className="shrink-0 text-purple-400" />
-                        <span>You can use any valid email. You will be asked to upload your college ID card.</span>
-                      </div>
-                    )}
-
-                    {/* Passwords */}
-                    <Field label="Password (Min. 8 characters)" icon={<Lock size={15} />}>
-                      <PasswordInput value={form.password} onChange={v => set('password', v)} placeholder="Create a strong password" />
-                    </Field>
-
-                    <Field label="Confirm Password" icon={<Lock size={15} />}>
-                      <PasswordInput value={form.confirmPassword} onChange={v => set('confirmPassword', v)} placeholder="Re-enter password" />
-                    </Field>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* STEP 1: Student Profile Details */}
-              {step === 1 && (
-                <motion.div
-                  key="step1"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-4"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                    <h3 className="text-white font-semibold text-base">Personal & Academic Details</h3>
-                    <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                      isAmritaSelected ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-300'
-                    }`}>
-                      {isAmritaSelected ? 'Amrita Campus' : 'Other College'}
-                    </span>
-                  </div>
-
-                  <Field label="Full Name (as per Student ID)" icon={<User size={15} />}>
-                    <input
-                      type="text"
-                      placeholder="e.g. Rahul Sharma"
-                      value={form.full_name}
-                      onChange={e => set('full_name', e.target.value)}
-                      required
-                      className={inputCls}
-                    />
-                  </Field>
-
-                  <Field label="Phone Number (10 digits, starts with 6,7,8,9) *" icon={<Phone size={15} />}>
-                    <input
-                      type="tel"
-                      placeholder="e.g. 9876543210"
-                      value={form.phone}
-                      maxLength={10}
-                      onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      required
-                      className={inputCls}
-                    />
-                  </Field>
-
-                  {/* College Name: Locked for Amrita, Input for Other */}
-                  {isAmritaSelected ? (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5">College / Institution</label>
-                      <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-200 text-sm">
-                        <div className="flex items-center gap-2">
-                          <School size={16} className="text-purple-400" />
-                          <span className="font-medium">Amrita Vishwa Vidyapeetham, Amaravati</span>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-purple-600/20 text-purple-400 flex items-center justify-center">
+                          <School size={16} />
                         </div>
-                        <span className="text-[10px] bg-purple-500/30 text-purple-300 font-semibold px-2 py-0.5 rounded">
-                          Fixed
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          ₹1,000 Fixed Pass
                         </span>
                       </div>
+                      <h4 className="text-white font-bold text-sm">Outside College Student</h4>
+                      <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                        National delegate entry. Includes 4 major flagship events.
+                      </p>
                     </div>
-                  ) : (
-                    <Field label="College / University Name *" icon={<Building2 size={15} />}>
-                      <input
-                        type="text"
-                        placeholder="e.g. SRM University, VIT, IIT Madras..."
-                        value={form.college_name}
-                        onChange={e => set('college_name', e.target.value)}
-                        required
-                        className={inputCls}
-                      />
-                    </Field>
-                  )}
 
-                  {/* Roll Number */}
-                  <Field
-                    label={isAmritaSelected ? 'Amrita Roll Number / Student ID *' : 'Roll / Student ID Number *'}
-                    icon={<GraduationCap size={15} />}
-                  >
+                    {/* Option 2: Amrita Student */}
+                    <div
+                      onClick={() => handleStudentTypeChange('amrita')}
+                      className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
+                        isAmritaSelected
+                          ? 'bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30 shadow-lg'
+                          : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
+                          <GraduationCap size={16} />
+                        </div>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Free Pass (₹0)
+                        </span>
+                      </div>
+                      <h4 className="text-white font-bold text-sm">Amrita Amaravati Student</h4>
+                      <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                        Requires official @av.students.amrita.edu email.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Outside Student Highlights Banner */}
+                  {!isAmritaSelected && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/50 to-pink-950/30 border border-purple-500/30 space-y-2 mb-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Sparkles size={14} className="text-purple-400" /> ₹1,000 Fixed Festival Pass Inclusions:
+                        </span>
+                        <span className="text-[10px] font-bold text-pink-400 bg-pink-500/15 px-2 py-0.5 rounded-full">
+                          4 Flagship Events
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {INCLUDED_FLAGSHIP_EVENTS.map(ev => {
+                          const Icon = ev.icon;
+                          return (
+                            <div key={ev.name} className="flex items-center gap-2 p-1.5 rounded-lg bg-black/30 border border-white/5">
+                              <Icon size={14} className="text-purple-400 shrink-0" />
+                              <span className="font-semibold text-slate-200 truncate">{ev.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-slate-400 pt-1 leading-normal">
+                        * Access to all 4 flagship events above is included. Other specialized club competitions and workshops are paid individually as displayed on the Events catalog.
+                      </p>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Email input */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    {isAmritaSelected ? 'Amrita Student Email' : 'Personal / Student Email'}
+                  </label>
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={e => set('email', e.target.value)}
+                      placeholder={isAmritaSelected ? `yourname@${AMRITA_DOMAIN}` : 'your.email@gmail.com'}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Password input */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Password (min 8 chars)
+                  </label>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={form.password}
+                      onChange={e => set('password', e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={form.confirmPassword}
+                      onChange={e => set('confirmPassword', e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={next}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 text-sm mt-4"
+                >
+                  <span>Continue to Profile Details</span>
+                  <ArrowRight size={16} />
+                </button>
+              </motion.div>
+            )}
+
+            {/* STEP 1: Personal & Academic Profile */}
+            {step === 1 && (
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-4"
+              >
+                {/* Full Name */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Full Name (as per ID, max {MAX_STUDENT_NAME_LENGTH} chars)
+                  </label>
+                  <div className="relative">
+                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="text"
-                      placeholder={isAmritaSelected ? 'e.g. CB.EN.U4CSE21001 or AV.SC.U4...' : 'e.g. 21BCE1024 / University Roll ID'}
+                      maxLength={MAX_STUDENT_NAME_LENGTH}
+                      value={form.full_name}
+                      onChange={e => set('full_name', e.target.value.slice(0, MAX_STUDENT_NAME_LENGTH))}
+                      placeholder="e.g. Rahul Sharma"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone number */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Phone Number (10 digits)
+                  </label>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="9876543210"
+                      maxLength={10}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* College / Institution */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    College / University Name
+                  </label>
+                  <div className="relative">
+                    <Building2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      value={isAmritaSelected ? 'Amrita Vishwa Vidyapeetham, Amaravati' : form.college_name}
+                      disabled={isAmritaSelected}
+                      onChange={e => set('college_name', e.target.value)}
+                      placeholder="e.g. IIT Madras, VIT Vellore, SRM"
+                      className={`w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 ${
+                        isAmritaSelected ? 'opacity-80' : ''
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Roll Number & Branch */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Roll / Student ID No
+                    </label>
+                    <input
+                      type="text"
                       value={form.roll_number}
                       onChange={e => set('roll_number', e.target.value)}
-                      required
-                      className={inputCls}
+                      placeholder="e.g. AV.EN.U4CSE23001"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 font-mono"
                     />
-                  </Field>
+                  </div>
 
-                  {/* Department & Year */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Branch / Department
+                    </label>
                     {isAmritaSelected ? (
-                      <Field label="Branch (Amaravati Campus) *" icon={null}>
-                        <select
-                          value={form.department}
-                          onChange={e => set('department', e.target.value)}
-                          required
-                          className={inputCls}
-                        >
-                          <option value="">Select Branch</option>
-                          {['CSE', 'CSE-AIE', 'AIDS', 'CCE', 'ECE', 'QUANTUM'].map(b => (
-                            <option key={b} value={b} className="bg-[#0e0b1a] text-slate-100">
-                              {b}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    ) : (
-                      <Field label="Branch / Department *" icon={null}>
-                        <input
-                          type="text"
-                          placeholder="e.g. Mechanical, Information Tech..."
-                          value={form.department}
-                          onChange={e => set('department', e.target.value)}
-                          required
-                          className={inputCls}
-                        />
-                      </Field>
-                    )}
-
-                    <Field label="Year of Study *" icon={null}>
                       <select
-                        value={form.year_of_study}
-                        onChange={e => set('year_of_study', e.target.value)}
-                        required
-                        className={inputCls}
+                        value={form.department}
+                        onChange={e => set('department', e.target.value)}
+                        className="w-full bg-[#0e0b1a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
                       >
-                        <option value="">Select Year</option>
-                        {['1', '2', '3', '4'].map(y => (
-                          <option key={y} value={y} className="bg-[#0e0b1a] text-slate-100">
-                            Year {y}
+                        <option value="">Select Branch</option>
+                        {['CSE', 'CSE-AIE', 'AIDS', 'CCE', 'ECE', 'QUANTUM'].map(b => (
+                          <option key={b} value={b} className="bg-slate-900 text-white">
+                            {b}
                           </option>
                         ))}
                       </select>
-                    </Field>
-                  </div>
-
-                  {/* City / Location: Only for Other College Students, Removed for Amrita */}
-                  {!isAmritaSelected && (
-                    <Field label="City / Location *" icon={<MapPin size={15} />}>
+                    ) : (
                       <input
                         type="text"
-                        placeholder="e.g. Vijayawada, Chennai, Hyderabad..."
-                        value={form.city}
-                        onChange={e => set('city', e.target.value)}
-                        required
-                        className={inputCls}
+                        value={form.department}
+                        onChange={e => set('department', e.target.value)}
+                        placeholder="e.g. Computer Science"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500"
                       />
-                    </Field>
-                  )}
-                </motion.div>
-              )}
-
-              {/* STEP 2: Review & Submit */}
-              {step === 2 && (
-                <motion.div
-                  key="step2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-4"
-                >
-                  <h3 className="text-white font-semibold text-lg mb-2">Review & Create Account</h3>
-
-                  <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-2.5 text-sm">
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-slate-400">Student Category</span>
-                      <span className="font-semibold text-purple-400">
-                        {isAmritaSelected ? '🎓 Amrita Student' : '🏛️ Other College Student'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-slate-400">Full Name</span>
-                      <span className="text-slate-200 font-medium">{form.full_name}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-slate-400">Email</span>
-                      <span className="text-slate-200 truncate max-w-[200px]">{form.email}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-slate-400">Phone</span>
-                      <span className="text-slate-200">{form.phone}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-slate-400">College</span>
-                      <span className="text-slate-200 truncate max-w-[200px]">
-                        {isAmritaSelected ? 'Amrita Vishwa Vidyapeetham' : form.college_name}
-                      </span>
-                    </div>
-                    {form.roll_number && (
-                      <div className="flex justify-between py-1 border-b border-white/5">
-                        <span className="text-slate-400">Roll Number</span>
-                        <span className="text-slate-200">{form.roll_number}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-slate-400">Dept / Year</span>
-                      <span className="text-slate-200">
-                        {form.department || '—'} ({form.year_of_study ? `Year ${form.year_of_study}` : '—'})
-                      </span>
-                    </div>
-                    {!isAmritaSelected && form.city && (
-                      <div className="flex justify-between py-1">
-                        <span className="text-slate-400">Location</span>
-                        <span className="text-slate-200">{form.city}</span>
-                      </div>
                     )}
                   </div>
+                </div>
 
-                  {/* External student ID card upload inside Step 2 */}
+                {/* Year of Study & City */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Year of Study
+                    </label>
+                    <select
+                      value={form.year_of_study}
+                      onChange={e => set('year_of_study', e.target.value)}
+                      className="w-full bg-[#0e0b1a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="">Select Year</option>
+                      {['1st Year', '2nd Year', '3rd Year', '4th Year', 'Postgraduate'].map(y => (
+                        <option key={y} value={y} className="bg-slate-900 text-white">
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {!isAmritaSelected && (
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-xs font-semibold text-slate-200">
-                          Upload College / University ID Card Photo <span className="text-amber-400">*</span>
-                        </label>
-                        <span className="text-[10px] text-slate-400">JPG, PNG (Max 5MB)</span>
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                        City / Location
+                      </label>
+                      <div className="relative">
+                        <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input
+                          type="text"
+                          value={form.city}
+                          onChange={e => set('city', e.target.value)}
+                          placeholder="e.g. Hyderabad, Chennai"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500"
+                        />
                       </div>
-
-                      {idCardPreview ? (
-                        <div className="relative rounded-2xl border border-purple-500/40 bg-purple-950/20 p-3 overflow-hidden">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={idCardPreview}
-                              alt="ID Preview"
-                              className="w-20 h-16 object-cover rounded-xl border border-white/20 bg-black/40 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-white truncate">
-                                {idCardFile?.name || 'College ID Card Selected'}
-                              </p>
-                              <p className="text-[11px] text-emerald-400 flex items-center gap-1 mt-0.5">
-                                <CheckCircle size={12} /> Ready for verification review
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIdCardFile(null);
-                                  setIdCardPreview('');
-                                }}
-                                className="text-[11px] text-purple-300 hover:text-purple-200 underline mt-1 block"
-                              >
-                                Replace Photo
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => document.getElementById('register-id-card-upload')?.click()}
-                          className="border-2 border-dashed border-white/20 hover:border-purple-500/50 rounded-2xl p-5 text-center cursor-pointer transition-all bg-white/[0.02] hover:bg-white/[0.04]"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center mx-auto mb-2">
-                            <Upload size={18} />
-                          </div>
-                          <p className="text-xs font-medium text-slate-200">
-                            Click to upload college ID card photo
-                          </p>
-                          <p className="text-[10px] text-slate-500 mt-1">
-                            Clear front-side photo or scan for verification approval
-                          </p>
-                          <input
-                            id="register-id-card-upload"
-                            type="file"
-                            accept="image/png,image/jpeg,image/jpg,image/webp"
-                            className="hidden"
-                            onChange={handleIdCardSelect}
-                          />
-                        </div>
-                      )}
                     </div>
                   )}
+                </div>
 
-                  <div className={`p-3 rounded-xl border text-xs leading-relaxed ${
-                    isAmritaSelected
-                      ? 'bg-purple-500/10 border-purple-500/20 text-purple-300'
-                      : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                  }`}>
-                    {isAmritaSelected ? (
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck size={16} className="text-purple-400 shrink-0" />
-                        <span>Amrita student profile submitted for verification. Free entry passes apply.</span>
+                {/* College ID card photo upload (for Outside Students) */}
+                {!isAmritaSelected && (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                      <span>Upload College ID Card Photo</span>
+                      <span className="text-purple-400 text-[11px] font-normal">JPG/PNG</span>
+                    </label>
+
+                    {idCardPreview ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-purple-500/40 bg-black/40 p-2">
+                        <img
+                          src={idCardPreview}
+                          alt="Student ID Preview"
+                          className="w-full h-32 object-contain rounded-xl"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { setIdCardFile(null); setIdCardPreview(''); }}
+                          className="absolute top-4 right-4 bg-red-600/80 hover:bg-red-600 text-white text-xs px-2 py-1 rounded-lg transition-all"
+                        >
+                          Remove
+                        </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <IdCard size={16} className="text-amber-400 shrink-0" />
-                        <span>Your uploaded ID card and details will be reviewed for event registration approval.</span>
-                      </div>
+                      <label className="border border-dashed border-white/20 hover:border-purple-500/50 rounded-2xl p-4 text-center cursor-pointer block bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+                        <Upload size={20} className="mx-auto text-purple-400 mb-1" />
+                        <p className="text-white text-xs font-semibold">Click to select Student ID photo</p>
+                        <p className="text-slate-500 text-[11px] mt-0.5">Clear photo of your college ID card</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleIdCardSelect}
+                        />
+                      </label>
                     )}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Nav buttons */}
-            <div className="flex gap-3 mt-6">
-              {step > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setError('');
-                    setStep(s => s - 1);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm hover:bg-white/10 transition-all"
-                >
-                  <ArrowLeft size={15} /> Back
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-purple-900/30"
-              >
-                {loading ? (
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : step < 2 ? (
-                  <>
-                    <span>Continue</span> <ArrowRight size={15} />
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle size={16} /> <span>Create Account</span>
-                  </>
                 )}
-              </button>
-            </div>
-          </form>
 
-          <p className="text-center text-slate-500 text-sm mt-5">
-            Already have an account?{' '}
-            <Link href="/auth/login" className="text-purple-400 hover:text-purple-300 font-medium">
-              Sign in
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(0)}
+                    className="w-1/3 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-semibold py-3 rounded-xl transition-all text-xs"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={next}
+                    disabled={loading}
+                    className="w-2/3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Creating Account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Proceed to Pass Checkout</span>
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 2: Pass Confirmation & Razorpay Payment */}
+            {step === 2 && (
+              <motion.div
+                key="step2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-5"
+              >
+                {/* Outside Student ₹1000 Pass Checkout Card */}
+                {!isAmritaSelected ? (
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/60 via-purple-900/30 to-black border border-purple-500/40 shadow-xl space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
+                            Official Delegate Pass
+                          </span>
+                          <h3 className="text-xl font-extrabold text-white mt-1">PARINAAM 2026 FESTIVAL PASS</h3>
+                          <p className="text-slate-300 text-xs mt-0.5">Attendee: {form.full_name} ({form.college_name})</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl sm:text-3xl font-extrabold text-purple-300 font-mono">₹1,000</p>
+                          <span className="text-[10px] text-emerald-400 font-semibold">Fixed All-Inclusive</span>
+                        </div>
+                      </div>
+
+                      {/* 4 Flagship Inclusions List */}
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                          <Sparkles size={14} className="text-amber-400" /> Guaranteed Included Flagship Events:
+                        </p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {INCLUDED_FLAGSHIP_EVENTS.map(ev => {
+                            const Icon = ev.icon;
+                            return (
+                              <div key={ev.name} className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-start gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-300 shrink-0">
+                                  <Icon size={14} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-white leading-tight">{ev.name}</p>
+                                  <p className="text-[10px] text-slate-400 line-clamp-1">{ev.desc}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-black/40 rounded-xl border border-white/5 text-[11px] text-slate-300 leading-relaxed">
+                        💳 <strong>Note:</strong> Upon successful payment of ₹1000, your official digital QR pass is generated immediately. Additional club-specific competitions and workshops have separate entry fees payable in the events catalog.
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setStep(1)}
+                        className="w-1/3 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-semibold py-3.5 rounded-xl transition-all text-xs"
+                      >
+                        ← Back
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleRazorpayPayment}
+                        disabled={paymentProcessing}
+                        className="w-2/3 bg-gradient-to-r from-emerald-600 via-purple-600 to-pink-600 hover:from-emerald-500 hover:to-pink-500 text-white font-extrabold py-3.5 rounded-xl transition-all shadow-xl shadow-purple-900/40 flex items-center justify-center gap-2 text-sm disabled:opacity-50 active:scale-95"
+                      >
+                        {paymentProcessing ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            <span>Processing Razorpay...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard size={16} />
+                            <span>Pay ₹1,000 &amp; Generate QR Pass</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Amrita Student Complimentary Pass Summary */
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                        <GraduationCap size={24} />
+                      </div>
+                      <h3 className="text-lg font-bold text-white">Amrita Student Free Pass</h3>
+                      <p className="text-slate-300 text-xs">
+                        Complimentary festival pass for {form.full_name} ({form.email})
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => next()}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition-all text-sm"
+                    >
+                      Complete &amp; Open Fest Pass →
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Footer link to login */}
+          <div className="mt-6 pt-5 border-t border-white/10 text-center text-xs text-slate-400">
+            Already registered on Parinaam?{' '}
+            <Link href="/auth/login" className="text-purple-400 hover:text-purple-300 font-semibold underline">
+              Sign In Here
             </Link>
-          </p>
+          </div>
         </div>
       </motion.div>
-    </div>
-  );
-}
-
-const inputCls =
-  'w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all';
-
-function Field({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-400 mb-1.5">{label}</label>
-      <div className="relative">
-        {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">{icon}</div>}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function PasswordInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-      <input
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-10 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
-      />
-      <button
-        type="button"
-        onClick={() => setShow(!show)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-      >
-        {show ? <EyeOff size={15} /> : <Eye size={15} />}
-      </button>
     </div>
   );
 }

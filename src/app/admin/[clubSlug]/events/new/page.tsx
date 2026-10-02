@@ -10,6 +10,8 @@ import {
   CheckCircle, Layers, ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { EventImageUploader } from '@/components/admin/EventImageUploader';
+import { isValidEmail } from '@/lib/utils';
 
 const CATEGORIES = [
   'Technical', 'Cultural', 'Coding & Hackathon', 'Robotics',
@@ -102,11 +104,52 @@ export default function CreateClubEventPage({
   const removeCoord = (i: number) => set('coordinators', form.coordinators.filter((_, idx) => idx !== i));
 
   const handleSave = async (publish = false) => {
-    if (!form.name.trim()) {
-      setError('Event name is required');
+    const missingBasicField = [
+      { label: 'Event name', value: form.name },
+      { label: 'Tagline', value: form.tagline },
+      { label: 'Category', value: form.category },
+      { label: 'Short description', value: form.short_description },
+      { label: 'Full detailed description', value: form.full_description },
+    ].find(field => !field.value.trim());
+
+    if (missingBasicField) {
+      setError(`${missingBasicField.label} is required`);
       setActiveSection('basic');
       return;
     }
+
+    // Auto-assign default festival cover if none is chosen
+    let effectivePoster = form.poster_url?.trim() || '';
+    if (!effectivePoster) {
+      effectivePoster = 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1000&q=80';
+      set('poster_url', effectivePoster);
+    } else {
+      // Validate poster URL (supports uploaded photo data:image/ base64, relative / paths, and http/https URLs)
+      const isDataUrl = effectivePoster.startsWith('data:image/');
+      const isRelative = effectivePoster.startsWith('/');
+      if (!isDataUrl && !isRelative) {
+        try {
+          const parsed = new URL(effectivePoster);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            throw new Error('Invalid poster URL protocol');
+          }
+        } catch {
+          setError('Event poster must be a valid uploaded image, preset photo, or HTTP/HTTPS URL');
+          setActiveSection('basic');
+          return;
+        }
+      }
+    }
+
+    // Validate coordinator emails
+    for (const coord of form.coordinators) {
+      if (coord.email?.trim() && !isValidEmail(coord.email.trim())) {
+        setError(`Coordinator email '${coord.email}' is not a valid email address`);
+        setActiveSection('coordinators');
+        return;
+      }
+    }
+
     if (publish && !form.date_start.trim()) {
       setError('Event start date is required to publish an event');
       setActiveSection('schedule');
@@ -122,12 +165,13 @@ export default function CreateClubEventPage({
 
     const payload = {
       ...form,
+      poster_url: effectivePoster,
       date_start: form.date_start.trim() || null,
       date_end: form.date_end.trim() || null,
       start_time: form.start_time.trim() || null,
       end_time: form.end_time.trim() || null,
       status: publish ? 'published' : form.status,
-      registration_open: publish ? true : form.registration_open,
+      registration_open: publish ? true : (form.registration_open ?? true),
       fee: parseInt(form.fee) || 0,
       min_team_size: parseInt(form.min_team_size) || 1,
       max_team_size: parseInt(form.max_team_size) || 1,
@@ -239,21 +283,24 @@ export default function CreateClubEventPage({
                         onChange={e => set('name', e.target.value)}
                         placeholder="e.g. CodeSprint 2026 / Battle of Bands"
                         className={inp}
+                        required
                       />
                     </FormField>
-                    <FormField label="Tagline">
+                    <FormField label="Tagline *">
                       <input
                         value={form.tagline}
                         onChange={e => set('tagline', e.target.value)}
                         placeholder="Short catchy one-liner"
                         className={inp}
+                        required
                       />
                     </FormField>
-                    <FormField label="Category">
+                    <FormField label="Category *">
                       <select
                         value={form.category}
                         onChange={e => set('category', e.target.value)}
                         className={sel}
+                        required
                       >
                         <option value="">Select category</option>
                         {CATEGORIES.map(c => (
@@ -263,32 +310,30 @@ export default function CreateClubEventPage({
                         ))}
                       </select>
                     </FormField>
-                    <FormField label="Short Description">
+                    <FormField label="Short Description *">
                       <textarea
                         value={form.short_description}
                         onChange={e => set('short_description', e.target.value)}
                         rows={2}
                         placeholder="Short summary for event cards"
                         className={txta}
+                        required
                       />
                     </FormField>
-                    <FormField label="Full Detailed Description">
+                    <FormField label="Full Detailed Description *">
                       <textarea
                         value={form.full_description}
                         onChange={e => set('full_description', e.target.value)}
                         rows={5}
                         placeholder="Full rules, schedule details, guidelines..."
                         className={txta}
+                        required
                       />
                     </FormField>
-                    <FormField label="Event Poster URL">
-                      <input
-                        value={form.poster_url}
-                        onChange={e => set('poster_url', e.target.value)}
-                        placeholder="https://..."
-                        className={inp}
-                      />
-                    </FormField>
+                    <EventImageUploader
+                      value={form.poster_url}
+                      onChange={url => set('poster_url', url)}
+                    />
                   </>
                 )}
 

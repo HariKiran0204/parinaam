@@ -21,6 +21,7 @@ import {
   MapPin,
   Briefcase
 } from 'lucide-react';
+import { isValidEmail } from '@/lib/utils';
 
 const SPONSOR_PACKAGES = [
   {
@@ -78,29 +79,7 @@ const SPONSOR_PACKAGES = [
   },
 ];
 
-const MOCK_CONTACTS = [
-  {
-    role: 'Head of Corporate Relations & Sponsorships',
-    name: 'Srikanth Verma',
-    phone: '+91 98765 43210',
-    email: 'parinaam@av.amrita.edu',
-    timing: '10:00 AM – 7:00 PM IST',
-  },
-  {
-    role: 'Faculty Fest Convenor',
-    name: 'Dr. M. Anand Kumar',
-    phone: '+91 863 234 5678',
-    email: 'parinaam@av.amrita.edu',
-    timing: 'Amrita Vishwa Vidyapeetham, Amaravati',
-  },
-  {
-    role: 'Industry Outreach Coordinator',
-    name: 'Ananya Sen',
-    phone: '+91 98112 34567',
-    email: 'parinaam@av.amrita.edu',
-    timing: 'Corporate Partnerships & MoUs',
-  },
-];
+
 
 export default function SponsorRegistrationPage() {
   const [formData, setFormData] = useState({
@@ -133,8 +112,17 @@ export default function SponsorRegistrationPage() {
     setFormData((prev) => ({ ...prev, tier: tierId }));
   };
 
+  const [formError, setFormError] = useState('');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+
+    if (!isValidEmail(formData.email)) {
+      setFormError('Please enter a valid official corporate email address (e.g. name@company.com)');
+      return;
+    }
+
     setIsSubmitting(true);
 
     setTimeout(() => {
@@ -162,13 +150,7 @@ export default function SponsorRegistrationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#05030a] text-slate-100 fest-grid-bg pt-10 sm:pt-14 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
-      {/* Hide the top global navbar specifically on this sponsor page without altering the global codebase */}
-      <style>{`
-        header.fixed {
-          display: none !important;
-        }
-      `}</style>
+    <div className="min-h-screen bg-[#05030a] text-slate-100 fest-grid-bg pt-28 sm:pt-36 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
 
       {/* Ambient Theme Glows */}
       <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-purple-600/15 rounded-full blur-[150px] pointer-events-none" />
@@ -422,6 +404,11 @@ export default function SponsorRegistrationPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                  {formError && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+                      ⚠️ {formError}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {/* Company Name */}
                     <div>
@@ -455,7 +442,7 @@ export default function SponsorRegistrationPage() {
                           required
                           value={formData.contactPerson}
                           onChange={handleInputChange}
-                          placeholder="e.g. John Doe / Corporate Lead"
+                          placeholder="Full Name"
                           className="w-full bg-[#140f2b] border border-purple-900/60 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-purple-400/40 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all font-sans"
                         />
                       </div>
@@ -495,7 +482,7 @@ export default function SponsorRegistrationPage() {
                           required
                           value={formData.phone}
                           onChange={handleInputChange}
-                          placeholder="+91 98765 43210"
+                          placeholder="+91 XXXXXXXXXX"
                           className="w-full bg-[#140f2b] border border-purple-900/60 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-purple-400/40 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all font-sans"
                         />
                       </div>
@@ -684,31 +671,31 @@ export default function SponsorRegistrationPage() {
                     Need custom branding, booth dimensions, or invoice inquiries? Contact our team directly:
                   </p>
 
-                  <div className="space-y-3.5">
-                    {MOCK_CONTACTS.map((c, i) => (
-                      <div key={i} className="bg-black/60 border border-purple-900/40 rounded-xl p-3.5 space-y-1.5">
-                        <span className="text-[10px] font-mono text-fuchsia-300 uppercase block font-semibold">
-                          {c.role}
-                        </span>
-                        <h4 className="text-sm font-bold text-white font-['Pixelify_Sans',_monospace]">
-                          {c.name}
-                        </h4>
-                        <div className="text-xs text-slate-400 space-y-1 font-mono">
-                          <p className="flex items-center gap-2">
-                            <Phone size={12} className="text-purple-400/70" />
-                            <a href={`tel:${c.phone}`} className="hover:text-fuchsia-400 transition-colors">
-                              {c.phone}
-                            </a>
-                          </p>
-                          <p className="flex items-center gap-2">
-                            <Mail size={12} className="text-purple-400/70" />
-                            <a href={`mailto:${c.email}`} className="hover:text-fuchsia-400 transition-colors">
-                              {c.email}
-                            </a>
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="space-y-3 font-mono text-xs">
+                    <div className="bg-black/60 border border-purple-900/40 rounded-xl p-3.5 space-y-2">
+                      <span className="text-[10px] text-fuchsia-300 uppercase block font-semibold">
+                        OFFICIAL SPONSORSHIP DESK
+                      </span>
+                      <p className="text-slate-300 flex items-center gap-2">
+                        <Mail size={13} className="text-fuchsia-400" />
+                        <a href="mailto:parinaam@av.amrita.edu" className="hover:text-fuchsia-400 transition-colors">
+                          parinaam@av.amrita.edu
+                        </a>
+                      </p>
+                      <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                        <Clock size={12} className="text-purple-400/70" />
+                        <span>Mon – Sat, 9:00 AM – 6:00 PM IST</span>
+                      </p>
+                    </div>
+
+                    <div className="bg-black/60 border border-purple-900/40 rounded-xl p-3.5 space-y-1 text-slate-300">
+                      <span className="text-[10px] text-amber-400 uppercase block font-semibold">
+                        PROPOSAL &amp; MOU DESK
+                      </span>
+                      <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                        Our corporate relations committee will contact you within <strong>24 business hours</strong> with the formal festival proposal deck, invoice guidelines, and MoU agreement.
+                      </p>
+                    </div>
                   </div>
 
                   {/* Campus Address */}

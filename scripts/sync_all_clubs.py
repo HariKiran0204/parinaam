@@ -34,6 +34,7 @@ CLUB_SLUG_MAP = {
     "avinya": "avinya",
     "prachurya": "prachurya",
     "saptaswara": "saptaswara",
+    "spataswara": "saptaswara",
     "drsya": "drsya",
 }
 
@@ -49,6 +50,17 @@ def process_club_folder(folder_path, slug):
     if not image_files:
         return []
     
+    # Clean up old converted files exceeding current source count
+    for f in os.listdir(dest_dir):
+        if f.startswith(f"{slug}-photo-") and f.endswith(".jpg"):
+            m = re.search(rf"{slug}-photo-(\d+)\.jpg", f)
+            if m and int(m.group(1)) > len(image_files):
+                try:
+                    os.remove(os.path.join(dest_dir, f))
+                    print(f"  [CLEAN] Removed old surplus file: {f}")
+                except Exception:
+                    pass
+
     print(f"\n--> Processing club '{slug}' ({len(image_files)} source files found in '{os.path.basename(folder_path)}')...")
     converted_photos = []
     

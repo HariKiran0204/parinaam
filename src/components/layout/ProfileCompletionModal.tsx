@@ -6,17 +6,20 @@ import { AlertTriangle, ChevronRight, X, UserCheck, ShieldAlert } from 'lucide-r
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { isStudentProfileComplete } from '@/lib/institutionPolicy';
+
 export const ProfileCompletionModal: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const pathname = usePathname();
   const [dismissed, setDismissed] = useState(false);
 
-  // Re-evaluate when pathname changes (e.g. if user navigates to /dashboard/profile to edit)
+  // Re-evaluate when pathname changes
   useEffect(() => {
     setDismissed(false);
   }, [pathname]);
 
-  if (!user || user.role !== 'student') return null;
+  if (loading || !user || user.role !== 'student') return null;
+
 
   // Identify missing fields based on existing database schema fields
   const missingFields: string[] = [];

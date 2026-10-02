@@ -62,11 +62,6 @@ export const Footer = () => {
                   Participant Portal
                 </Link>
               </li>
-              <li>
-                <Link href="/organizer/scan" className="hover:text-white transition-colors">
-                  Organizer QR Scanner
-                </Link>
-              </li>
             </ul>
           </div>
 

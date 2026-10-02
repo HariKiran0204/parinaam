@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, Loader2, Sparkles, AlertCircle, CheckCircle2, Award } from 'lucide-react';
+import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, Loader2, Sparkles, AlertCircle, CheckCircle2, Award, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { isInstitutionalEmail, STANDARD_PLATFORM_FEE_INR, isStudentProfileComplete } from '@/lib/institutionPolicy';
+import { MockRazorpayModal } from './MockRazorpayModal';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -22,10 +23,12 @@ interface EventItem {
   poster_url: string;
   date_start: string;
   start_time: string;
+  registration_open?: boolean;
+  status?: string;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
-  const { cartItemIds, removeFromCart, clearCart } = useCart();
+  const { cartItemIds, removeFromCart, clearCart, refreshRegistrations } = useCart();
   const { user } = useAuth();
   const router = useRouter();
 
@@ -35,6 +38,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const [checkoutError, setCheckoutError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Mock checkout modal state
+  const [mockModalOpen, setMockModalOpen] = useState(false);
+  const [mockOrderData, setMockOrderData] = useState<{
+    order_id: string;
+    amount: number;
+    currency: string;
+    payment_db_id: string;
+  } | null>(null);
+
   // Fetch event details for cart items whenever drawer opens or cartItemIds change
   useEffect(() => {
     if (!isOpen || cartItemIds.length === 0) {
@@ -43,11 +55,35 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     }
 
     setLoadingEvents(true);
-    fetch('/api/events?status=published&limit=100')
+    fetch('/api/events?status=all&limit=100')
       .then(res => res.json())
       .then(data => {
         if (data.success && Array.isArray(data.data.events)) {
-          const matched = data.data.events.filter((e: any) => cartItemIds.includes(e.id));
+          const matchedMap = new Map<string, any>(data.data.events.map((e: any) => [e.id, e]));
+          const matched = cartItemIds.map((id) => {
+            const e: any = matchedMap.get(id);
+            if (e) {
+              return {
+                ...e,
+                fee: Number(e.fee) || 0,
+                registration_open: Boolean(e.registration_open),
+                status: e.status,
+              };
+            }
+            return {
+              id,
+              name: 'Unavailable Event',
+              category: 'N/A',
+              fee: 0,
+              club_name: 'System',
+              poster_url: '',
+              date_start: '',
+              start_time: '',
+              registration_open: false,
+              status: 'unavailable',
+              isDeleted: true,
+            };
+          });
           setEvents(matched);
         }
       })
@@ -86,6 +122,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       return;
     }
 
+    // Pre-checkout validation: Ensure no closed or unpublished events are in cart
+    const closedEvent = events.find(e => !e.registration_open || e.status !== 'published');
+    if (closedEvent) {
+      setCheckoutError(`Registration for event "${closedEvent.name}" is currently closed. Please remove it from your cart to proceed.`);
+      return;
+    }
+
     setProcessingPayment(true);
 
     try {
@@ -110,6 +153,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       // Step 2A: Free Events Cart (Amount = 0)
       if (orderData.data.is_free) {
         clearCart();
+        await refreshRegistrations();
         setSuccessMessage('Registration confirmed for all selected free events!');
         setTimeout(() => {
           onClose();
@@ -120,7 +164,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       }
 
       // Step 2B: Paid Events Cart — Trigger Razorpay Modal or Mock Checkout
-      const { order_id, amount, payment_db_id, key_id } = orderData.data;
+      const { order_id, amount, payment_db_id, key_id, is_mock } = orderData.data;
 
       // Helper function to call server-side verification
       const verifyPaymentServer = async (paymentId: string, signature: string) => {
@@ -141,6 +185,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
 
         if (verifyData.success) {
           clearCart();
+          await refreshRegistrations();
           setSuccessMessage(verifyData.data?.message || 'Registrations confirmed successfully!');
           setTimeout(() => {
             onClose();
@@ -151,8 +196,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
         }
       };
 
-      // Check if Razorpay Checkout script is loaded in browser
-      if (typeof window !== 'undefined' && (window as any).Razorpay) {
+      if (is_mock || typeof window === 'undefined' || !(window as any).Razorpay) {
+        // Open Mock Razorpay Test Checkout Modal in development mode
+        setMockOrderData({
+          order_id,
+          amount,
+          currency: 'INR',
+          payment_db_id,
+        });
+        setMockModalOpen(true);
+      } else {
+        // Real Razorpay Checkout Modal
         const options = {
           key: key_id,
           amount: amount,
@@ -163,6 +217,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
           handler: function (response: any) {
             verifyPaymentServer(response.razorpay_payment_id, response.razorpay_signature);
           },
+          modal: {
+            ondismiss: function () {
+              setProcessingPayment(false);
+              setCheckoutError('Checkout was closed. Your 15-minute capacity hold remains active.');
+            },
+          },
           prefill: {
             name: user.full_name,
             email: user.email,
@@ -170,11 +230,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
           theme: { color: '#8b5cf6' },
         };
         const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any) {
+          setProcessingPayment(false);
+          setCheckoutError(response.error?.description || 'Payment failed. Please try again.');
+        });
         rzp.open();
-      } else {
-        // Dev Fallback / Mock Razorpay verification when Razorpay script isn't loaded
-        console.log('Mocking Razorpay payment verification in development...');
-        await verifyPaymentServer(`pay_mock_${Date.now()}`, 'mock_sig');
       }
     } catch (err: any) {
       console.error('Checkout error:', err);
@@ -252,39 +312,53 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
               </div>
             ) : (
               <div className="space-y-3">
-                {events.map((evt) => (
-                  <div
-                    key={evt.id}
-                    className="p-3.5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between gap-3 hover:border-purple-500/40 transition-all"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/10 overflow-hidden shrink-0">
-                        {evt.poster_url ? (
-                          <img src={evt.poster_url} alt={evt.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-purple-400 font-bold text-xs bg-purple-950/40">
-                            EVT
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-mono text-purple-400 block truncate">{evt.club_name}</span>
-                        <h4 className="text-sm font-bold text-white truncate">{evt.name}</h4>
-                        <span className="text-xs font-semibold text-emerald-400 font-mono">
-                          {Number(evt.fee) === 0 ? 'FREE' : `₹${evt.fee}`}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => removeFromCart(evt.id)}
-                      className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                      title="Remove Event"
+                {events.map((evt) => {
+                  const isUnavailable = evt.registration_open === false || evt.status !== 'published';
+                  return (
+                    <div
+                      key={evt.id}
+                      className={`p-3.5 border rounded-2xl flex items-center justify-between gap-3 transition-all ${
+                        isUnavailable
+                          ? 'bg-red-500/10 border-red-500/40 hover:border-red-500/60'
+                          : 'bg-white/5 border-white/10 hover:border-purple-500/40'
+                      }`}
                     >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/10 overflow-hidden shrink-0">
+                          {evt.poster_url ? (
+                            <img src={evt.poster_url} alt={evt.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-purple-400 font-bold text-xs bg-purple-950/40">
+                              EVT
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-mono text-purple-400 block truncate">{evt.club_name}</span>
+                          <h4 className="text-sm font-bold text-white truncate">{evt.name}</h4>
+                          {isUnavailable ? (
+                            <span className="text-[11px] font-semibold text-amber-400 font-mono flex items-center gap-1">
+                              <AlertTriangle size={12} className="shrink-0 text-amber-400" />
+                              <span>Registration Closed — Remove</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-emerald-400 font-mono">
+                              {Number(evt.fee) === 0 ? 'FREE' : `₹${evt.fee}`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => removeFromCart(evt.id)}
+                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                        title="Remove Event"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -360,6 +434,54 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
 
         </div>
       </div>
+
+      {/* Development Mock Razorpay Test Checkout Modal */}
+      {mockOrderData && (
+        <MockRazorpayModal
+          isOpen={mockModalOpen}
+          onClose={() => {
+            setMockModalOpen(false);
+            setProcessingPayment(false);
+          }}
+          orderData={mockOrderData}
+          events={events.map((e) => ({ id: e.id, name: e.name, fee: Number(e.fee) || 0 }))}
+          totalFee={totalFee}
+          platformFee={user ? (user.is_amrita_student || isInstitutionalEmail(user.email) || user.platform_fee_paid ? 0 : STANDARD_PLATFORM_FEE_INR) : 0}
+          grandTotal={totalFee + (user ? (user.is_amrita_student || isInstitutionalEmail(user.email) || user.platform_fee_paid ? 0 : STANDARD_PLATFORM_FEE_INR) : 0)}
+          userEmail={user?.email}
+          userName={user?.full_name}
+          onVerifySuccess={async (paymentId, signature) => {
+            const verifyRes = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                payment_db_id: mockOrderData.payment_db_id,
+                razorpay_order_id: mockOrderData.order_id,
+                razorpay_payment_id: paymentId,
+                razorpay_signature: signature,
+                type: 'event_fee',
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              clearCart();
+              await refreshRegistrations();
+              setSuccessMessage(verifyData.data?.message || 'Registrations confirmed successfully!');
+              setTimeout(() => {
+                setMockModalOpen(false);
+                onClose();
+                router.push('/dashboard');
+              }, 1500);
+            } else {
+              throw new Error(verifyData.error || 'Mock verification failed');
+            }
+          }}
+          onPaymentFailed={(reason) => {
+            setCheckoutError(reason);
+            setProcessingPayment(false);
+          }}
+        />
+      )}
     </div>
   );
 };

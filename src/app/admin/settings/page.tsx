@@ -45,8 +45,8 @@ export default function AdminSettingsPage() {
     <div className="min-h-screen bg-[#05030a] pt-20 pb-16">
       <div className="max-w-2xl mx-auto px-4">
         <div className="mb-6">
-          <Link href="/admin" className="text-slate-400 hover:text-white text-sm flex items-center gap-1 mb-1">
-            <ChevronLeft size={14}/> Admin
+          <Link href="/superadmin" className="text-slate-400 hover:text-white text-sm flex items-center gap-1 mb-1">
+            <ChevronLeft size={14}/> Back to Command HQ
           </Link>
           <div className="flex items-center gap-2">
             <Settings size={20} className="text-purple-400"/>

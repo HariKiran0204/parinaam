@@ -10,6 +10,8 @@ import {
   Loader2, Tag, Calendar, Layers
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { isStudentProfileComplete } from '@/lib/institutionPolicy';
 
 interface EventDetail {
   id: string; name: string; event_code: string; tagline: string;
@@ -33,14 +35,11 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { isInCart, isConfirmed, toggleCartItem } = useCart();
 
   const [event, setEvent]   = useState<EventDetail | null>(null);
   const [myReg, setMyReg]   = useState<UserRegistration | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [registering, setRegistering] = useState(false);
-  const [regError, setRegError] = useState('');
-  const [teamName, setTeamName] = useState('');
-  const [showRegForm, setShowRegForm] = useState(false);
 
   useEffect(() => {
     fetch(`/api/events/${id}`).then(r => r.json()).then(d => {
@@ -48,33 +47,20 @@ export default function EventDetailPage() {
     }).finally(() => setLoading(false));
   }, [id]);
 
-  const handleRegister = async () => {
-    if (!user) { router.push('/auth/login'); return; }
-    if (user.verification_status !== 'verified') {
-      setRegError('Your account verification is pending Super Admin approval. Once approved, you can register for events.');
+  const inCart = isInCart(id);
+  const isConfirmedReg = isConfirmed(id) || myReg?.status === 'CONFIRMED';
+  const isStudent = user?.role === 'student';
+  const isProfileComplete = isStudentProfileComplete(user);
+
+  const handleInterestedClick = () => {
+    if (!user) { router.push(`/auth/login?redirect=/events/${id}`); return; }
+    if (isStudent && !isProfileComplete) {
+      alert('Please complete your platform registration profile before choosing events.');
+      router.push('/dashboard/profile');
       return;
     }
-    if (!user.is_amrita_student && !user.platform_fee_paid) {
-      router.push('/dashboard/payment');
-      return;
-    }
-
-    setRegistering(true); setRegError('');
-    const res = await fetch('/api/registrations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: id, team_name: teamName || undefined }),
-    });
-    const data = await res.json();
-    setRegistering(false);
-
-    if (data.success) {
-      setMyReg(data.data.registration);
-      if (data.data.needs_payment) {
-        router.push(`/dashboard/payment?registration_id=${data.data.registration.id}&event_id=${id}`);
-      }
-    } else {
-      setRegError(data.error || 'Registration failed. Please try again.');
+    if (isStudent) {
+      toggleCartItem(id, event?.name);
     }
   };
 
@@ -96,6 +82,7 @@ export default function EventDetailPage() {
   const spotsLeft = event.capacity ? event.capacity - event.enrolled : null;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
   const isTeamEvent = event.max_team_size > 1;
+  const isRegistrationOpen = event.status === 'published' ? (event.registration_open ?? true) : Boolean(event.registration_open);
 
   return (
     <div className="min-h-screen bg-[#05030a] pt-24 pb-20">
@@ -258,79 +245,56 @@ export default function EventDetailPage() {
                   </div>
                 </div>
 
-                {/* My registration status */}
-                {myReg && (
-                  <div className={`mb-4 p-3 rounded-xl border ${myReg.status === 'CONFIRMED' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle size={16} className={myReg.status === 'CONFIRMED' ? 'text-green-400' : 'text-amber-400'} />
-                      <p className={`text-sm font-semibold ${myReg.status === 'CONFIRMED' ? 'text-green-300' : 'text-amber-300'}`}>
-                        {myReg.status === 'CONFIRMED' ? 'You\'re registered!' : 'Registration Pending'}
-                      </p>
-                    </div>
-                    {myReg.payment_status !== 'paid' && event.fee > 0 && (
-                      <Link href={`/dashboard/payment?registration_id=${myReg.id}&event_id=${id}`}
-                        className="mt-2 w-full flex justify-center items-center bg-amber-600 text-white text-xs font-semibold py-2 rounded-lg hover:bg-amber-500 transition-all">
-                        Complete Payment →
-                      </Link>
-                    )}
+                {/* Registration status */}
+                {isConfirmedReg ? (
+                  <div className="mb-4 p-3.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold font-mono text-sm flex items-center gap-2">
+                    <CheckCircle size={18} className="text-emerald-400" />
+                    <span>You're registered!</span>
+                  </div>
+                ) : (
+                  (!user || user.role === 'student') && (
+                    <>
+                      <button
+                        onClick={handleInterestedClick}
+                        disabled={isFull || !isRegistrationOpen || (!!user && user.verification_status !== 'verified')}
+                        className={`w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all ${
+                          isFull || !isRegistrationOpen || (!!user && user.verification_status !== 'verified')
+                            ? 'bg-white/5 text-slate-500 cursor-not-allowed border border-white/10'
+                            : inCart && isStudent
+                              ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-900/30'
+                              : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-900/30'
+                        }`}
+                      >
+                        {isFull
+                          ? 'Event is Full'
+                          : !isRegistrationOpen
+                            ? 'Registration Closed'
+                            : !user
+                              ? 'Sign in to Register'
+                              : user.verification_status !== 'verified'
+                                ? '⏳ Verification Pending'
+                                : inCart && isStudent
+                                  ? '✓ Interested'
+                                  : "I'm Interested"}
+                      </button>
+                      {!user && (
+                        <p className="text-slate-600 text-xs text-center mt-2">
+                          <Link href="/auth/login" className="text-purple-400 hover:text-purple-300">Sign in</Link> or{' '}
+                          <Link href="/auth/register" className="text-purple-400 hover:text-purple-300">register</Link> to participate
+                        </p>
+                      )}
+                    </>
+                  )
+                )}
+
+                {/* Admin Mode Notice */}
+                {user && (user.role === 'club_admin' || user.role === 'super_admin') && (
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-center">
+                    <p className="text-purple-300 text-xs font-semibold font-mono">Viewing Event in Admin Mode</p>
+                    <p className="text-slate-500 text-[11px] mt-1">Student registration is disabled for administrator accounts.</p>
                   </div>
                 )}
 
-                {/* Verification pending banner */}
-                {user && user.verification_status !== 'verified' && !myReg && (
-                  <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs">
-                    <div className="flex items-center gap-2 text-amber-300 font-semibold mb-1">
-                      <Clock size={14} /> Verification Pending Approval
-                    </div>
-                    <p className="text-slate-400 leading-relaxed">
-                      Your profile is submitted to Super Admin for verification. Once approved, you can register for all events.
-                    </p>
-                  </div>
-                )}
-
-                {/* Error */}
-                {regError && (
-                  <div className="mb-3 flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2.5 text-red-400 text-xs">
-                    <AlertTriangle size={13} className="shrink-0 mt-0.5" /> {regError}
-                  </div>
-                )}
-
-                {/* Register button */}
-                {!myReg && (
-                  <>
-                    {isTeamEvent && showRegForm && (
-                      <div className="mb-3">
-                        <label className="text-xs text-slate-400 block mb-1">Team Name</label>
-                        <input value={teamName} onChange={e => setTeamName(e.target.value)}
-                          placeholder="Enter your team name" maxLength={60}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500" />
-                      </div>
-                    )}
-                    <button
-                      onClick={isTeamEvent && !showRegForm ? () => setShowRegForm(true) : handleRegister}
-                      disabled={registering || isFull || !event.registration_open || (!!user && user.verification_status !== 'verified')}
-                      className={`w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all ${
-                        isFull || !event.registration_open || (!!user && user.verification_status !== 'verified')
-                          ? 'bg-white/5 text-slate-500 cursor-not-allowed border border-white/10'
-                          : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-900/30'
-                      }`}>
-                      {registering ? <Loader2 size={16} className="animate-spin" /> :
-                        isFull ? 'Event is Full' :
-                        !event.registration_open ? 'Registration Closed' :
-                        !user ? 'Sign in to Register' :
-                        user.verification_status !== 'verified' ? '⏳ Verification Pending' :
-                        isTeamEvent && !showRegForm ? "I'm Interested (Team)" :
-                        `I'm Interested${event.fee > 0 ? ` · ₹${event.fee}` : ''}`}
-
-                    </button>
-                    {!user && (
-                      <p className="text-slate-600 text-xs text-center mt-2">
-                        <Link href="/auth/login" className="text-purple-400 hover:text-purple-300">Sign in</Link> or{' '}
-                        <Link href="/auth/register" className="text-purple-400 hover:text-purple-300">register</Link> to participate
-                      </p>
-                    )}
-                  </>
-                )}
 
                 {/* Club info */}
                 <div className="mt-4 pt-4 border-t border-white/10">

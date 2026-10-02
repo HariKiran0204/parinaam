@@ -7,17 +7,42 @@ import { formatCurrency } from '../../lib/utils';
 import { useFest } from '../../context/FestContext';
 import { useCart } from '../../context/CartContext';
 
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { isStudentProfileComplete } from '@/lib/institutionPolicy';
+
 interface EventCardProps {
   event: FestEvent;
   onSelect: (event: FestEvent) => void;
   onRegisterQuick?: (event: FestEvent) => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, onRegisterQuick }) => {
-  const { isEventRegistered } = useFest();
-  const { isInCart, toggleCartItem } = useCart();
-  const registered = isEventRegistered(event.id);
+export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { isInCart, isConfirmed, toggleCartItem } = useCart();
+  const registered = isConfirmed(event.id);
   const inCart = isInCart(event.id);
+
+  const isStudent = user?.role === 'student';
+  const isProfileComplete = isStudentProfileComplete(user);
+  const isAdmin = user?.role === 'club_admin' || user?.role === 'super_admin';
+
+  const handleInterestedClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      router.push('/auth/login?redirect=/events');
+      return;
+    }
+    if (isStudent && !isProfileComplete) {
+      alert('Please complete your platform registration profile before choosing events.');
+      router.push('/dashboard/profile');
+      return;
+    }
+    if (isStudent) {
+      toggleCartItem(event.id, event.name);
+    }
+  };
 
   return (
     <div className="bg-[#0b0716] border border-purple-900/50 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-purple-500/70 transition-all duration-300 group mi-glow-card">
@@ -49,21 +74,20 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, onRegiste
           <span>{event.prizePool}</span>
         </div>
 
-        {/* "I'm Interested" Heart/Cart Toggle Badge */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleCartItem(event.id);
-          }}
-          className={`absolute bottom-3 right-3 p-2 rounded-xl transition-all border shadow-lg ${
-            inCart
-              ? 'bg-pink-600 text-white border-pink-500 scale-105'
-              : 'bg-black/70 backdrop-blur-sm text-slate-300 border-white/20 hover:text-pink-400 hover:border-pink-500/50'
-          }`}
-          title={inCart ? "In your Interested Cart" : "I'm Interested — Add to Cart"}
-        >
-          <Heart size={15} className={inCart ? 'fill-white' : ''} />
-        </button>
+        {/* "I'm Interested" Heart/Cart Toggle Badge — Rendered ONLY for non-confirmed guests/students */}
+        {!isAdmin && !registered && (
+          <button
+            onClick={handleInterestedClick}
+            className={`absolute bottom-3 right-3 p-2 rounded-xl transition-all border shadow-lg ${
+              inCart && isStudent
+                ? 'bg-pink-600 text-white border-pink-500 scale-105'
+                : 'bg-black/70 backdrop-blur-sm text-slate-300 border-white/20 hover:text-pink-400 hover:border-pink-500/50'
+            }`}
+            title={!user ? "Sign in to add to cart" : inCart ? "In your Interested Cart" : "I'm Interested — Add to Cart"}
+          >
+            <Heart size={15} className={inCart && isStudent ? 'fill-white' : ''} />
+          </button>
+        )}
       </div>
 
       {/* Card Content */}
@@ -108,32 +132,34 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, onRegiste
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
-          {registered ? (
-            <span className="py-2 px-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono flex items-center gap-1">
-              <Check className="w-3.5 h-3.5" />
-              <span>Joined</span>
-            </span>
-          ) : (
-            <button
-              onClick={() => toggleCartItem(event.id)}
-              className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                inCart
-                  ? 'bg-pink-600/30 text-pink-300 border border-pink-500/50'
-                  : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-glow'
-              }`}
-            >
-              {inCart ? (
-                <>
-                  <Check size={13} />
-                  <span>Interested</span>
-                </>
-              ) : (
-                <>
-                  <Heart size={13} />
-                  <span>I'm Interested</span>
-                </>
-              )}
-            </button>
+          {!isAdmin && (
+            registered ? (
+              <span className="py-2 px-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                <span>You're registered!</span>
+              </span>
+            ) : (
+              <button
+                onClick={handleInterestedClick}
+                className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  inCart && isStudent
+                    ? 'bg-pink-600/30 text-pink-300 border border-pink-500/50'
+                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-glow'
+                }`}
+              >
+                {inCart && isStudent ? (
+                  <>
+                    <Check size={13} />
+                    <span>✓ Interested</span>
+                  </>
+                ) : (
+                  <>
+                    <Heart size={13} />
+                    <span>I'm Interested</span>
+                  </>
+                )}
+              </button>
+            )
           )}
         </div>
       </div>
@@ -141,4 +167,5 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect, onRegiste
     </div>
   );
 };
+
 

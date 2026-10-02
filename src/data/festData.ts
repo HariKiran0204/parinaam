@@ -153,13 +153,38 @@ export const GALLERY_ITEMS: GalleryClubItem[] = [
       },
       {
         url: '/images/clubs/chakravyuha/chakravyuha-photo-4.jpg',
+        title: 'Hackathon Prototyping & Collaboration',
+        caption: 'Teams collaborating on architectural design, code review, and full-stack software development.'
+      },
+      {
+        url: '/images/clubs/chakravyuha/chakravyuha-photo-5.jpg',
+        title: 'Grand Hackathon Stage Showcase',
+        caption: 'Chakravyuha members and participants gathered on the main auditorium stage for celebration.'
+      },
+      {
+        url: '/images/clubs/chakravyuha/chakravyuha-photo-6.jpg',
+        title: 'Championship Trophy & Prize Ceremony',
+        caption: 'Winning teams receiving certificates, medals, and national cash prize accolades.'
+      },
+      {
+        url: '/images/clubs/chakravyuha/chakravyuha-photo-7.jpg',
+        title: 'Team Problem-Solving Sprint',
+        caption: 'Engineers debugging algorithmic edge cases and stress-testing backends under tight deadlines.'
+      },
+      {
+        url: '/images/clubs/chakravyuha/chakravyuha-photo-8.jpg',
+        title: 'Hackathon Project Defense',
+        caption: 'Participants pitching live software and hardware solutions to academic and industry juries.'
+      },
+      {
+        url: '/images/clubs/chakravyuha/chakravyuha-photo-9.jpg',
         title: 'Technical Presentation & Talks',
         caption: 'Student engineers presenting research architectures and software systems to fellow participants.'
       },
       {
-        url: '/images/clubs/chakravyuha/chakravyuha-photo-5.jpg',
+        url: '/images/clubs/chakravyuha/chakravyuha-photo-10.jpg',
         title: 'Innovation Defense & Demo',
-        caption: 'Participants pitching live software and hardware solutions to academic and industry juries.'
+        caption: 'Finalists presenting breakthrough models and algorithmic pipelines to evaluation panels.'
       },
     ],
     caption: '150+ teams decoding cryptographic ciphers and investigating cyber crime logs in the flagship murder mystery hackathon.',
@@ -230,6 +255,33 @@ export const GALLERY_ITEMS: GalleryClubItem[] = [
     imageUrl: '/images/clubs/saptaswara.png',
     logoUrl: '/images/clubs/saptaswara-emblem.png',
     cardUrl: '/images/clubs/saptaswara-card.png',
+    photos: [
+      {
+        url: '/images/clubs/saptaswara/saptaswara-photo-1.jpg',
+        title: 'Open Air Amphitheatre Concert',
+        caption: 'Live collegiate band delivering electrifying fusion guitar solos and drum rhythms under stage floodlights.'
+      },
+      {
+        url: '/images/clubs/saptaswara/saptaswara-photo-2.jpg',
+        title: 'Battle of the Bands Mainstage',
+        caption: 'Lead vocalists and instrumentalists captivating a roaring crowd of festival attendees.'
+      },
+      {
+        url: '/images/clubs/saptaswara/saptaswara-photo-3.jpg',
+        title: 'Acoustic & Unplugged Sessions',
+        caption: 'Intimate acoustic guitar sets, melodious vocals, and keyboard harmonies.'
+      },
+      {
+        url: '/images/clubs/saptaswara/saptaswara-photo-4.jpg',
+        title: 'Carnatic-Western Raga Fusion',
+        caption: 'Mesmerizing musical jugalbandis blending classical ragas with contemporary rock cadence.'
+      },
+      {
+        url: '/images/clubs/saptaswara/saptaswara-photo-5.jpg',
+        title: 'Orchestra & Vocal Ensemble',
+        caption: 'The full musical ensemble performing soul-stirring festive choral anthems.'
+      },
+    ],
     caption: 'Top collegiate rock, metal, and fusion bands headlining an electric evening on the Main Open Air Amphitheatre.',
     description: 'Bringing soulful harmony and roaring decibels to the techfest. Saptaswara curates electric Battle of the Bands clashes, Carnatic-Western jugalbandis, and acoustic vocal open mics.',
     eventsConducted: ['Battle of the Bands', 'Raga Symphony Fusion', 'Acoustic Unplugged Night']
