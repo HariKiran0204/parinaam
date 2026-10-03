@@ -120,9 +120,11 @@ CREATE TABLE IF NOT EXISTS events (
   -- Coordinators
   coordinators JSONB DEFAULT '[]'::JSONB,
   
-  -- Media
+  -- Media & Registration
   poster_url TEXT,
   rulebook_url TEXT,
+  unstop_url TEXT,
+  registration_url TEXT,
   
   -- Status
   status VARCHAR(20) DEFAULT 'draft'

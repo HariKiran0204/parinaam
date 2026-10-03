@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { FestEvent } from '../../types';
-import { X, Calendar, Clock, MapPin, Users, Trophy, Download, Phone, Mail, CheckCircle2, ShieldCheck, Ticket } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Users, Trophy, Download, Phone, Mail, CheckCircle2, ShieldCheck, Ticket, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import { useFest } from '../../context/FestContext';
 import Link from 'next/link';
@@ -29,6 +29,10 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClo
   const isAdmin = user?.role === 'club_admin' || user?.role === 'super_admin';
   const isStudent = user?.role === 'student';
   const isProfileComplete = isStudentProfileComplete(user);
+  const hasUnstop = Boolean(event.unstopUrl || event.registrationUrl);
+  const unstopLink = (event.unstopUrl || event.registrationUrl || '').startsWith('http')
+    ? (event.unstopUrl || event.registrationUrl)
+    : `https://${event.unstopUrl || event.registrationUrl}`;
 
   const handleInterestedClick = () => {
     if (!user) {
@@ -196,7 +200,17 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClo
             <span>Download Official Rulebook (PDF)</span>
           </button>
 
-          {!isAdmin ? (
+          {hasUnstop ? (
+            <a
+              href={unstopLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl text-white text-sm font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 shadow-fest-brand flex items-center justify-center gap-2 transition-all"
+            >
+              <span>Register on Unstop</span>
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          ) : !isAdmin ? (
             registered ? (
               <div className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-sm font-bold font-mono flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />

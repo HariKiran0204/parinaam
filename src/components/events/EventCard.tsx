@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { FestEvent } from '../../types';
-import { Calendar, Clock, MapPin, Users, Trophy, ChevronRight, Check, Heart, ShoppingBag } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Trophy, ChevronRight, Check, Heart, ShoppingBag, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import { useFest } from '../../context/FestContext';
 import { useCart } from '../../context/CartContext';
@@ -27,6 +27,10 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
   const isStudent = user?.role === 'student';
   const isProfileComplete = isStudentProfileComplete(user);
   const isAdmin = user?.role === 'club_admin' || user?.role === 'super_admin';
+  const hasUnstop = Boolean(event.unstopUrl || event.registrationUrl);
+  const unstopLink = (event.unstopUrl || event.registrationUrl || '').startsWith('http')
+    ? (event.unstopUrl || event.registrationUrl)
+    : `https://${event.unstopUrl || event.registrationUrl}`;
 
   const handleInterestedClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -63,15 +67,22 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b0716] via-transparent to-transparent pointer-events-none z-10" />
         
         {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none gap-1 flex-wrap">
           <span className="text-[10px] font-mono font-bold uppercase bg-black/80 backdrop-blur-sm text-purple-300 px-2.5 py-1 rounded-lg border border-purple-800/80">
             {event.category}
           </span>
-          {event.isPopular && (
-            <span className="text-[10px] font-mono font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-md">
-              Flagship
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {hasUnstop && (
+              <span className="text-[10px] font-mono font-bold uppercase bg-blue-600 text-white px-2 py-0.5 rounded-md flex items-center gap-1 shadow">
+                <ExternalLink size={10} /> Unstop
+              </span>
+            )}
+            {event.isPopular && (
+              <span className="text-[10px] font-mono font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-md">
+                Flagship
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Prize Pool Tag */}
@@ -80,8 +91,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
           <span>{event.prizePool}</span>
         </div>
 
-        {/* "I'm Interested" Heart/Cart Toggle Badge — Rendered ONLY for non-confirmed guests/students */}
-        {!isAdmin && !registered && (
+        {/* "I'm Interested" Heart/Cart Toggle Badge — Rendered ONLY for non-confirmed guests/students if not Unstop */}
+        {!isAdmin && !registered && !hasUnstop && (
           <button
             onClick={handleInterestedClick}
             className={`absolute bottom-3 right-3 p-2 rounded-xl transition-all border shadow-lg ${
@@ -138,7 +149,18 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
-          {!isAdmin && (
+          {hasUnstop ? (
+            <a
+              href={unstopLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-indigo-950/50"
+            >
+              <span>Register</span>
+              <ExternalLink size={12} />
+            </a>
+          ) : !isAdmin && (
             registered ? (
               <span className="py-2 px-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono flex items-center gap-1">
                 <Check className="w-3.5 h-3.5" />

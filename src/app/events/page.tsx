@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, X, Loader2, Calendar, Users, IndianRupee, Trophy, ChevronRight, Tag } from 'lucide-react';
+import { Search, Filter, X, Loader2, Calendar, Users, IndianRupee, Trophy, ChevronRight, Tag, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -15,6 +15,7 @@ interface Event {
   category: string; venue: string; date_start: string; start_time: string; end_time: string;
   min_team_size: number; max_team_size: number; capacity: number; enrolled: number; fee: number;
   prize_pool: string; poster_url: string; status: string; registration_open: boolean;
+  unstop_url?: string; registration_url?: string;
   is_popular: boolean; is_featured: boolean;
   club_id: string; club_name: string; club_slug: string; club_color: string;
 }
@@ -247,6 +248,11 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
         <div className="absolute inset-0 bg-gradient-to-t from-[#05030a]/90 via-transparent to-transparent pointer-events-none z-10" />
         {/* Badges */}
         <div className="absolute top-3.5 left-3.5 flex gap-2 flex-wrap z-20">
+          {(event.unstop_url || event.registration_url) && (
+            <span className="bg-blue-600/95 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1">
+              <ExternalLink size={11} /> Unstop
+            </span>
+          )}
           {event.is_popular && (
             <span className="bg-amber-500/95 text-amber-950 text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md">🔥 Popular</span>
           )}
@@ -310,7 +316,21 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
             className="flex-1 text-center text-sm font-semibold py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all">
             Details
           </Link>
-          {!isAdmin && (
+          {(event.unstop_url || event.registration_url) ? (
+            <a
+              href={
+                (event.unstop_url || event.registration_url || '').startsWith('http')
+                  ? (event.unstop_url || event.registration_url)
+                  : `https://${event.unstop_url || event.registration_url}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-center text-sm font-semibold py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-all flex items-center justify-center gap-1 shadow-lg shadow-indigo-950/40"
+            >
+              <span>Register</span>
+              <ExternalLink size={13} />
+            </a>
+          ) : !isAdmin && (
             registered ? (
               <span className="flex-1 text-center text-xs font-bold font-mono py-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
                 You're registered!

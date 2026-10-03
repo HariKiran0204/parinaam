@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
           e.category, e.tags, e.venue, e.date_start, e.date_end,
           e.start_time, e.end_time, e.day_number, e.min_team_size,
           e.max_team_size, e.capacity, e.enrolled, e.fee, e.prize_pool,
-          e.poster_url, e.status, 
+          e.poster_url, e.rulebook_url, e.unstop_url, e.registration_url, e.status, 
           (CASE WHEN e.status = 'published' AND (e.registration_open IS NULL OR e.registration_open = false) THEN true ELSE e.registration_open END) as registration_open,
           e.is_popular, e.is_featured, e.created_at,
           c.id as club_id, c.name as club_name, c.slug as club_slug, c.color as club_color
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       min_team_size = 1, max_team_size = 1,
       capacity, fee = 0, prize_pool, eligibility,
       rules = [], rounds = [], coordinators = [],
-      poster_url, rulebook_url, status = 'draft',
+      poster_url, rulebook_url, unstop_url, registration_url, status = 'draft',
       registration_open = body.registration_open !== undefined ? body.registration_open : (status === 'published'),
       is_popular = false,
       club_id: bodyClubId,
@@ -155,17 +155,20 @@ export async function POST(req: NextRequest) {
     const parsedRounds = JSON.stringify(Array.isArray(rounds) ? rounds : []);
     const parsedCoordinators = JSON.stringify(Array.isArray(coordinators) ? coordinators : []);
 
+    const effectiveUnstopUrl = (unstop_url || registration_url || '').trim() || null;
+    const effectiveRegUrl = (registration_url || unstop_url || '').trim() || null;
+
     const result = await db.query(
       `INSERT INTO events (
         club_id, created_by, name, event_code, tagline, short_description,
         full_description, category, tags, venue, date_start, date_end,
         start_time, end_time, day_number, min_team_size, max_team_size,
         capacity, fee, prize_pool, eligibility, rules, rounds,
-        coordinators, poster_url, rulebook_url, status,
+        coordinators, poster_url, rulebook_url, unstop_url, registration_url, status,
         registration_open, is_popular
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-        $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
+        $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31
       ) RETURNING *`,
       [
         clubId, session.userId, name, eventCode, tagline,
@@ -177,7 +180,7 @@ export async function POST(req: NextRequest) {
         parsedRules,
         parsedRounds,
         parsedCoordinators,
-        poster_url, rulebook_url, status, registration_open, is_popular
+        poster_url, rulebook_url, effectiveUnstopUrl, effectiveRegUrl, status, registration_open, is_popular
       ]
     );
 

@@ -33,6 +33,8 @@ function mapApiEventToFestEvent(e: any): FestEvent {
     coordinators: Array.isArray(e.coordinators) ? e.coordinators : [],
     image: e.poster_url || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1000',
     rulebookUrl: e.rulebook_url || '',
+    unstopUrl: e.unstop_url || e.registration_url || '',
+    registrationUrl: e.registration_url || e.unstop_url || '',
     isPopular: Boolean(e.is_popular || e.is_featured),
     registrationOpen: Boolean(e.registration_open),
   };

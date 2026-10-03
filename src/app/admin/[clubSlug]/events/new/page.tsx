@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Info, MapPin, Users, IndianRupee, Trophy, FileText,
   Plus, Trash2, Save, Eye, AlertCircle, Clock,
-  CheckCircle, Layers, ArrowLeft
+  CheckCircle, Layers, ArrowLeft, ExternalLink, Globe
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { EventImageUploader } from '@/components/admin/EventImageUploader';
@@ -23,7 +23,7 @@ const SECTIONS = [
   { id: 'basic', label: 'Basic Info', icon: <Info size={15} /> },
   { id: 'schedule', label: 'Schedule', icon: <Clock size={15} /> },
   { id: 'team', label: 'Team & Capacity', icon: <Users size={15} /> },
-  { id: 'fees', label: 'Fees & Prizes', icon: <IndianRupee size={15} /> },
+  { id: 'fees', label: 'Fees & Registration', icon: <IndianRupee size={15} /> },
   { id: 'rounds', label: 'Rounds', icon: <Layers size={15} /> },
   { id: 'rules', label: 'Rules & Eligibility', icon: <FileText size={15} /> },
   { id: 'coordinators', label: 'Coordinators', icon: <Users size={15} /> },
@@ -56,6 +56,8 @@ export default function CreateClubEventPage({
     participation_type: 'individual' as 'individual' | 'team',
     min_team_size: '1', max_team_size: '1',
     team_pricing_structure: '',
+    registration_mode: 'internal' as 'internal' | 'unstop',
+    unstop_url: '',
     capacity: '', fee: '0', prize_pool: '',
     eligibility: '',
     rules: [''] as string[],
@@ -152,6 +154,28 @@ export default function CreateClubEventPage({
       }
     }
 
+    // Validate Unstop / External Registration URL if mode is 'unstop'
+    let effectiveUnstopUrl = form.unstop_url?.trim() || '';
+    if (form.registration_mode === 'unstop') {
+      if (!effectiveUnstopUrl) {
+        setError('Please provide an Unstop or external registration URL');
+        setActiveSection('fees');
+        return;
+      }
+      if (!effectiveUnstopUrl.startsWith('http://') && !effectiveUnstopUrl.startsWith('https://')) {
+        effectiveUnstopUrl = `https://${effectiveUnstopUrl}`;
+      }
+      try {
+        new URL(effectiveUnstopUrl);
+      } catch {
+        setError('Invalid Unstop or external URL format (must be a valid web link)');
+        setActiveSection('fees');
+        return;
+      }
+    } else {
+      effectiveUnstopUrl = '';
+    }
+
     if (publish && !form.date_start.trim()) {
       setError('Event start date is required to publish an event');
       setActiveSection('schedule');
@@ -177,6 +201,8 @@ export default function CreateClubEventPage({
     const payload = {
       ...form,
       poster_url: effectivePoster,
+      unstop_url: effectiveUnstopUrl || null,
+      registration_url: effectiveUnstopUrl || null,
       date_start: form.date_start.trim() || null,
       date_end: form.date_end.trim() || null,
       start_time: form.start_time.trim() || null,
@@ -500,10 +526,85 @@ export default function CreateClubEventPage({
                   </>
                 )}
 
-                {/* Fees */}
+                {/* Fees & Registration */}
                 {activeSection === 'fees' && (
                   <>
-                    <h2 className="text-lg font-bold text-white">Fees & Prize Pool</h2>
+                    <h2 className="text-lg font-bold text-white">Registration Method & Fees</h2>
+
+                    {/* Registration Mode Selector */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-2">Registration Mode *</label>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div
+                          onClick={() => {
+                            set('registration_mode', 'internal');
+                            set('unstop_url', '');
+                          }}
+                          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                            form.registration_mode === 'internal'
+                              ? 'bg-purple-950/50 border-purple-500 ring-2 ring-purple-500/30'
+                              : 'bg-white/5 border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Globe size={16} className="text-purple-400" />
+                            <p className="text-white font-bold text-sm">Internal Portal</p>
+                          </div>
+                          <p className="text-slate-400 text-xs leading-relaxed">
+                            Students register directly on the Parinaam portal & get official festival QR passes.
+                          </p>
+                        </div>
+
+                        <div
+                          onClick={() => set('registration_mode', 'unstop')}
+                          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                            form.registration_mode === 'unstop'
+                              ? 'bg-gradient-to-br from-blue-950/60 to-indigo-950/60 border-blue-500 ring-2 ring-blue-500/40'
+                              : 'bg-white/5 border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <ExternalLink size={16} className="text-blue-400" />
+                            <p className="text-white font-bold text-sm">Unstop / External Link</p>
+                          </div>
+                          <p className="text-slate-400 text-xs leading-relaxed">
+                            Provide an Unstop competition link or external registration form URL.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Unstop Link Input */}
+                    {form.registration_mode === 'unstop' && (
+                      <div className="p-4 rounded-xl bg-blue-950/30 border border-blue-500/30 space-y-3">
+                        <FormField label="Unstop / External Registration Link *">
+                          <div className="flex gap-2">
+                            <input
+                              value={form.unstop_url}
+                              onChange={e => set('unstop_url', e.target.value)}
+                              placeholder="e.g. https://unstop.com/competitions/your-event-slug"
+                              className={`${inp} flex-1`}
+                            />
+                            {form.unstop_url && (
+                              <a
+                                href={form.unstop_url.startsWith('http') ? form.unstop_url : `https://${form.unstop_url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3.5 py-2.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/50 text-blue-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0"
+                                title="Test link in new tab"
+                              >
+                                <span>Test Link</span>
+                                <ExternalLink size={13} />
+                              </a>
+                            )}
+                          </div>
+                        </FormField>
+                        <p className="text-blue-300/80 text-[11px] leading-relaxed">
+                          💡 When published, students will see a prominent <strong>"Register on Unstop ↗"</strong> button on the event card and details page directing them to this external link.
+                        </p>
+                      </div>
+                    )}
+
                     <FormField label="Registration Fee (₹)">
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">₹</span>

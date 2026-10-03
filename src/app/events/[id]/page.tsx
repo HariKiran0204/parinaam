@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   MapPin, Clock, Users, IndianRupee, Trophy, FileText,
   Phone, Mail, ArrowLeft, CheckCircle, AlertTriangle,
-  Loader2, Tag, Calendar, Layers
+  Loader2, Tag, Calendar, Layers, ExternalLink, Globe
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -23,6 +23,7 @@ interface EventDetail {
   eligibility: string; rules: string[]; rounds: { name: string; description: string; date: string }[];
   coordinators: { name: string; role: string; phone: string; email: string }[];
   poster_url: string; rulebook_url: string;
+  unstop_url?: string; registration_url?: string;
   status: string; registration_open: boolean; is_popular: boolean;
   club_id: string; club_name: string; club_color: string; club_description: string;
 }
@@ -117,6 +118,11 @@ export default function EventDetailPage() {
             <span className="text-xs font-mono bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-md border border-purple-500/30">
               {isTeamEvent ? `👥 ${teamLabel}` : '👤 Individual'}
             </span>
+            {(event.unstop_url || event.registration_url) && (
+              <span className="text-xs font-mono bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-md border border-blue-500/30 flex items-center gap-1 font-semibold">
+                <ExternalLink size={12} /> Unstop Event
+              </span>
+            )}
             {event.is_popular && <span className="text-xs bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-md font-bold">🔥 Flagship</span>}
           </div>
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight">{event.name}</h1>
@@ -290,8 +296,34 @@ export default function EventDetailPage() {
                   </div>
                 </div>
 
-                {/* Registration status */}
-                {isConfirmedReg ? (
+                {/* Registration Action: Unstop vs Internal */}
+                {(event.unstop_url || event.registration_url) ? (
+                  <div className="space-y-3 mb-2">
+                    <div className="p-3 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs text-slate-300">
+                      <div className="flex items-center gap-1.5 font-bold text-blue-300 mb-1">
+                        <ExternalLink size={13} />
+                        <span>External Unstop Registration</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        This event's registrations and submissions are hosted on <strong>Unstop</strong>. Click below to proceed to the official competition portal.
+                      </p>
+                    </div>
+
+                    <a
+                      href={
+                        (event.unstop_url || event.registration_url || '').startsWith('http')
+                          ? (event.unstop_url || event.registration_url)
+                          : `https://${event.unstop_url || event.registration_url}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 font-bold py-3.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-950/50 transition-all text-sm group"
+                    >
+                      <span>Register on Unstop</span>
+                      <ExternalLink size={15} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    </a>
+                  </div>
+                ) : isConfirmedReg ? (
                   <div className="mb-4 p-3.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold font-mono text-sm flex items-center gap-2">
                     <CheckCircle size={18} className="text-emerald-400" />
                     <span>You're registered!</span>

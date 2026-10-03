@@ -82,6 +82,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       'start_time', 'end_time', 'day_number', 'min_team_size',
       'max_team_size', 'capacity', 'fee', 'prize_pool', 'eligibility',
       'rules', 'rounds', 'coordinators', 'poster_url', 'rulebook_url',
+      'unstop_url', 'registration_url',
       'status', 'registration_open', 'is_popular', 'is_featured',
     ];
 

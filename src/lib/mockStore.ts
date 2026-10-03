@@ -73,6 +73,8 @@ export interface MockEvent {
   coordinators: any[];
   poster_url: string;
   rulebook_url: string;
+  unstop_url?: string;
+  registration_url?: string;
   status: string;
   registration_open: boolean;
   is_popular: boolean;
@@ -431,7 +433,7 @@ class MockDbEngine {
         venue, date_start, date_end, start_time, end_time,
         day_number, min_team_size, max_team_size, capacity,
         fee, prize_pool, eligibility, rules, rounds,
-        coordinators, poster_url, rulebook_url, status,
+        coordinators, poster_url, rulebook_url, unstop_url, registration_url, status,
         registration_open, is_popular, is_featured
       ] = params;
 
@@ -459,11 +461,13 @@ class MockDbEngine {
         fee: fee || 0,
         prize_pool: prize_pool || '',
         eligibility: eligibility || '',
-        rules: rules ? JSON.parse(rules) : [],
-        rounds: rounds ? JSON.parse(rounds) : [],
-        coordinators: coordinators ? JSON.parse(coordinators) : [],
+        rules: rules ? (typeof rules === 'string' ? JSON.parse(rules) : rules) : [],
+        rounds: rounds ? (typeof rounds === 'string' ? JSON.parse(rounds) : rounds) : [],
+        coordinators: coordinators ? (typeof coordinators === 'string' ? JSON.parse(coordinators) : coordinators) : [],
         poster_url: poster_url || '',
         rulebook_url: rulebook_url || '',
+        unstop_url: unstop_url || '',
+        registration_url: registration_url || unstop_url || '',
         status: status || 'published',
         registration_open: registration_open !== false,
         is_popular: Boolean(is_popular),

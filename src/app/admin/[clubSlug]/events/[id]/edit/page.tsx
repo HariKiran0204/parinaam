@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Save, Eye, AlertCircle, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, Eye, AlertCircle, Trash2, Users, ExternalLink, Globe } from 'lucide-react';
 import { useRequireRole } from '@/context/AuthContext';
 import { EventImageUploader } from '@/components/admin/EventImageUploader';
 
@@ -22,6 +22,8 @@ export default function EditEventPage() {
 		participation_type: 'individual' as 'individual' | 'team',
 		min_team_size: '1', max_team_size: '1',
 		team_pricing_structure: '',
+		registration_mode: 'internal' as 'internal' | 'unstop',
+		unstop_url: '',
 		fee: '0', capacity: '', prize_pool: '', eligibility: '',
 		poster_url: '', status: 'draft', registration_open: false, is_popular: false,
 	});
@@ -31,6 +33,7 @@ export default function EditEventPage() {
 			if (d.success) {
 				const ev = d.data.event;
 				const isTeam = (Number(ev.max_team_size) || 1) > 1;
+				const hasUnstop = Boolean(ev.unstop_url || ev.registration_url);
 				setForm({
 					name: ev.name || '',
 					tagline: ev.tagline || '',
@@ -45,6 +48,8 @@ export default function EditEventPage() {
 					min_team_size: String(ev.min_team_size || (isTeam ? 2 : 1)),
 					max_team_size: String(ev.max_team_size || (isTeam ? 4 : 1)),
 					team_pricing_structure: '',
+					registration_mode: hasUnstop ? 'unstop' : 'internal',
+					unstop_url: ev.unstop_url || ev.registration_url || '',
 					fee: String(ev.fee ?? 0),
 					capacity: ev.capacity ? String(ev.capacity) : '',
 					prize_pool: ev.prize_pool || '',
@@ -64,6 +69,27 @@ export default function EditEventPage() {
 		setSaving(true);
 		setError('');
 
+		let effectiveUnstopUrl = form.unstop_url?.trim() || '';
+		if (form.registration_mode === 'unstop') {
+			if (!effectiveUnstopUrl) {
+				setError('Please provide a valid Unstop or external registration URL');
+				setSaving(false);
+				return;
+			}
+			if (!effectiveUnstopUrl.startsWith('http://') && !effectiveUnstopUrl.startsWith('https://')) {
+				effectiveUnstopUrl = `https://${effectiveUnstopUrl}`;
+			}
+			try {
+				new URL(effectiveUnstopUrl);
+			} catch {
+				setError('Invalid Unstop or external URL format');
+				setSaving(false);
+				return;
+			}
+		} else {
+			effectiveUnstopUrl = '';
+		}
+
 		let effectiveEligibility = form.eligibility || '';
 		if (form.participation_type === 'team' && form.team_pricing_structure?.trim()) {
 			if (!effectiveEligibility.includes(form.team_pricing_structure.trim())) {
@@ -75,6 +101,8 @@ export default function EditEventPage() {
 
 		const payload: Record<string, unknown> = {
 			...form,
+			unstop_url: effectiveUnstopUrl || null,
+			registration_url: effectiveUnstopUrl || null,
 			fee: parseInt(form.fee) || 0,
 			min_team_size: form.participation_type === 'individual' ? 1 : (parseInt(form.min_team_size) || 2),
 			max_team_size: form.participation_type === 'individual' ? 1 : (parseInt(form.max_team_size) || 4),
@@ -225,6 +253,75 @@ export default function EditEventPage() {
 										className={inp}
 									/>
 								</F>
+							</div>
+						)}
+					</div>
+
+					{/* Registration Mode & Unstop Link */}
+					<div>
+						<label className="block text-xs font-medium text-slate-400 mb-1.5">Registration Method *</label>
+						<div className="grid grid-cols-2 gap-3 mb-3">
+							<div
+								onClick={() => {
+									set('registration_mode', 'internal');
+									set('unstop_url', '');
+								}}
+								className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+									form.registration_mode === 'internal'
+										? 'bg-purple-950/60 border-purple-500 ring-2 ring-purple-500/30'
+										: 'bg-white/5 border-white/10 hover:border-white/20'
+								}`}
+							>
+								<div className="flex items-center gap-1.5 mb-1">
+									<Globe size={14} className="text-purple-400" />
+									<p className="text-white font-bold text-xs">Internal Portal</p>
+								</div>
+								<p className="text-slate-400 text-[11px] leading-relaxed">Parinaam digital pass & QR check-in</p>
+							</div>
+
+							<div
+								onClick={() => set('registration_mode', 'unstop')}
+								className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+									form.registration_mode === 'unstop'
+										? 'bg-gradient-to-br from-blue-950/60 to-indigo-950/60 border-blue-500 ring-2 ring-blue-500/40'
+										: 'bg-white/5 border-white/10 hover:border-white/20'
+								}`}
+							>
+								<div className="flex items-center gap-1.5 mb-1">
+									<ExternalLink size={14} className="text-blue-400" />
+									<p className="text-white font-bold text-xs">Unstop / External Link</p>
+								</div>
+								<p className="text-slate-400 text-[11px] leading-relaxed">Direct external competition page</p>
+							</div>
+						</div>
+
+						{form.registration_mode === 'unstop' && (
+							<div className="p-3.5 rounded-xl bg-blue-950/30 border border-blue-500/30 space-y-2 mb-3">
+								<F label="Unstop / External Registration URL *">
+									<div className="flex gap-2">
+										<input
+											value={form.unstop_url}
+											onChange={e => set('unstop_url', e.target.value)}
+											placeholder="https://unstop.com/competitions/..."
+											className={`${inp} flex-1`}
+										/>
+										{form.unstop_url && (
+											<a
+												href={form.unstop_url.startsWith('http') ? form.unstop_url : `https://${form.unstop_url}`}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="px-3 py-2 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/50 text-blue-200 text-xs font-semibold flex items-center gap-1 transition-colors shrink-0"
+												title="Test link"
+											>
+												<span>Test</span>
+												<ExternalLink size={12} />
+											</a>
+										)}
+									</div>
+								</F>
+								<p className="text-blue-300/80 text-[11px]">
+									💡 Participants will see a direct <strong>"Register on Unstop ↗"</strong> action button linking to this URL.
+								</p>
 							</div>
 						)}
 					</div>

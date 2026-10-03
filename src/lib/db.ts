@@ -62,6 +62,13 @@ if (pool) {
     // Log without exposing connection string or credentials
     console.error('[DB] Unexpected PostgreSQL pool error:', err.message);
   });
+  // Execute auto-migration to ensure unstop_url and registration_url exist on events
+  pool.query(`
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS unstop_url TEXT;
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_url TEXT;
+  `).catch(err => {
+    console.warn('[DB] Auto-migration notice:', err.message);
+  });
 }
 
 export const db = {
