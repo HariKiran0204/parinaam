@@ -223,20 +223,47 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
       transition={{ delay: index * 0.04, duration: 0.35 }}
       className="group bg-white/5 border border-white/10 hover:border-purple-500/50 rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-2xl hover:shadow-purple-900/20"
     >
+      {/* Top Header Pill Bar — Clean and zero overlap */}
+      <div className="px-4 py-2.5 bg-[#0e091e] border-b border-white/10 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md text-white shadow-sm truncate max-w-[130px]" style={{ background: `${event.club_color}cc` }}>
+            {event.club_name}
+          </span>
+          <span className="text-[10px] font-mono text-slate-400 hidden sm:inline truncate">
+            {event.category}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {(event.unstop_url || event.registration_url) && (
+            <span className="bg-blue-600/90 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
+              <ExternalLink size={10} /> Unstop
+            </span>
+          )}
+          {event.is_popular && (
+            <span className="bg-amber-500 text-slate-950 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow-sm">
+              Flagship
+            </span>
+          )}
+          <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded shadow-sm ${event.fee === 0 ? 'bg-emerald-500/90 text-white' : 'bg-black/60 text-amber-300 border border-amber-500/30'}`}>
+            {event.fee === 0 ? 'FREE' : `₹${event.fee}`}
+          </span>
+        </div>
+      </div>
+
       {/* Poster — Big Full uncropped image with 3:4 portrait framing */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0a0614] flex items-center justify-center border-b border-white/10">
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#070410] flex items-center justify-center border-b border-white/10">
         {event.poster_url ? (
           <>
             <img
               src={event.poster_url}
               alt=""
               aria-hidden
-              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
+              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30 scale-125 pointer-events-none"
             />
             <img
               src={event.poster_url}
               alt={event.name}
-              className="relative z-10 w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500 drop-shadow-2xl"
+              className="relative z-10 w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300 drop-shadow-2xl"
             />
           </>
         ) : (
@@ -246,42 +273,29 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
         )}
         {/* Subtle bottom gradient */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#05030a]/90 via-transparent to-transparent pointer-events-none z-10" />
-        {/* Badges */}
-        <div className="absolute top-3.5 left-3.5 flex gap-2 flex-wrap z-20">
-          {(event.unstop_url || event.registration_url) && (
-            <span className="bg-blue-600/95 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1">
-              <ExternalLink size={11} /> Unstop
-            </span>
-          )}
-          {event.is_popular && (
-            <span className="bg-amber-500/95 text-amber-950 text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md">🔥 Popular</span>
-          )}
-          {almostFull && (
-            <span className="bg-red-500/95 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md">⚡ {spotsLeft} spots left</span>
-          )}
-          {isFull && (
-            <span className="bg-slate-800/95 text-slate-300 text-xs font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md">Full</span>
-          )}
-        </div>
-        {/* Club tag */}
-        <div className="absolute bottom-3.5 left-3.5 z-20">
-          <span className="text-xs font-semibold px-3 py-1 rounded-full text-white shadow-lg backdrop-blur-md border border-white/10" style={{ background: `${event.club_color}dd` }}>
-            {event.club_name}
-          </span>
-        </div>
-        {/* Fee */}
-        <div className="absolute top-3.5 right-3.5 z-20">
-          <span className={`text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md shadow-lg ${event.fee === 0 ? 'bg-emerald-500/95 text-white' : 'bg-black/80 text-purple-300 border border-purple-500/40'}`}>
-            {event.fee === 0 ? 'FREE' : `₹${event.fee}`}
-          </span>
-        </div>
+        
+        {/* Bottom Pinned Alerts (Spots Left / Full) */}
+        {(almostFull || isFull) && (
+          <div className="absolute bottom-3 left-3 z-20">
+            {almostFull && (
+              <span className="bg-red-500/95 text-white text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg shadow-lg backdrop-blur-md flex items-center gap-1">
+                ⚡ {spotsLeft} spots left
+              </span>
+            )}
+            {isFull && (
+              <span className="bg-slate-800/95 text-slate-300 text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg shadow-lg backdrop-blur-md">
+                Full
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex flex-col flex-1 p-5">
         <div className="mb-3">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <p className="text-xs text-slate-500 font-mono">{event.event_code} · {event.category}</p>
+            <p className="text-xs text-purple-400 font-mono font-semibold">{event.event_code} · {event.category}</p>
             <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-white/5 text-purple-300">
               {teamLabel}
             </span>

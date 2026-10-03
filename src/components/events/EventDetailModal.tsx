@@ -22,6 +22,22 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClo
   const { user } = useAuth();
   const router = useRouter();
   const { isInCart, isConfirmed, toggleCartItem } = useCart();
+
+  React.useEffect(() => {
+    if (event) {
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onClose();
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = orig;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [event, onClose]);
+
   if (!event) return null;
 
   const registered = isConfirmed(event.id);
@@ -52,8 +68,14 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl relative my-8 text-slate-200 animate-in fade-in zoom-in-95 duration-200">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-slate-900 border border-purple-900/50 w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl relative my-auto text-slate-200 animate-in fade-in zoom-in-95 duration-200 overscroll-contain"
+      >
         
         {/* Close Button */}
         <button

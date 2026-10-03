@@ -51,42 +51,45 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
   return (
     <div className="bg-[#0b0716] border border-purple-900/50 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-purple-500/70 transition-all duration-300 group mi-glow-card">
       
+      {/* Top Header Pill Bar — Dedicated clean bar with NO overlapping behind poster */}
+      <div className="px-4 py-2.5 bg-[#0e091e] border-b border-purple-900/40 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-mono font-bold uppercase text-purple-300 px-2.5 py-0.5 rounded-md bg-purple-950/80 border border-purple-800/70 truncate max-w-[150px]">
+          {event.category}
+        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {hasUnstop && (
+            <span className="text-[10px] font-mono font-bold uppercase bg-blue-600/90 text-white px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
+              <ExternalLink size={10} /> Unstop
+            </span>
+          )}
+          {event.isPopular && (
+            <span className="text-[10px] font-mono font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded">
+              Flagship
+            </span>
+          )}
+          <span className="text-[11px] font-mono font-bold text-amber-300 px-2 py-0.5 rounded bg-black/60 border border-amber-500/30">
+            {event.fee === 0 ? 'FREE' : formatCurrency(event.fee)}
+          </span>
+        </div>
+      </div>
+
       {/* Image & Badges Banner — Big Full 3:4 Poster Showcase */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0a0614] flex items-center justify-center border-b border-purple-900/30">
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#070410] flex items-center justify-center border-b border-purple-900/30">
         <img
           src={event.image}
           alt=""
           aria-hidden
-          className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30 scale-125 pointer-events-none"
         />
         <img
           src={event.image}
           alt={event.name}
-          className="relative z-10 w-full h-full object-contain p-1 group-hover:scale-[1.03] transition-transform duration-300 opacity-95 group-hover:opacity-100 drop-shadow-2xl"
+          className="relative z-10 w-full h-full object-contain p-1 group-hover:scale-[1.02] transition-transform duration-300 drop-shadow-2xl"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b0716] via-transparent to-transparent pointer-events-none z-10" />
-        
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none gap-1 flex-wrap">
-          <span className="text-[10px] font-mono font-bold uppercase bg-black/80 backdrop-blur-sm text-purple-300 px-2.5 py-1 rounded-lg border border-purple-800/80">
-            {event.category}
-          </span>
-          <div className="flex items-center gap-1.5">
-            {hasUnstop && (
-              <span className="text-[10px] font-mono font-bold uppercase bg-blue-600 text-white px-2 py-0.5 rounded-md flex items-center gap-1 shadow">
-                <ExternalLink size={10} /> Unstop
-              </span>
-            )}
-            {event.isPopular && (
-              <span className="text-[10px] font-mono font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-md">
-                Flagship
-              </span>
-            )}
-          </div>
-        </div>
 
         {/* Prize Pool Tag */}
-        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/90 text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded-lg text-xs font-mono font-bold">
+        <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-lg">
           <Trophy className="w-3.5 h-3.5 text-amber-400" />
           <span>{event.prizePool}</span>
         </div>
@@ -95,10 +98,10 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
         {!isAdmin && !registered && !hasUnstop && (
           <button
             onClick={handleInterestedClick}
-            className={`absolute bottom-3 right-3 p-2 rounded-xl transition-all border shadow-lg ${
+            className={`absolute bottom-3 right-3 z-20 p-2 rounded-xl transition-all border shadow-lg ${
               inCart && isStudent
                 ? 'bg-pink-600 text-white border-pink-500 scale-105'
-                : 'bg-black/70 backdrop-blur-sm text-slate-300 border-white/20 hover:text-pink-400 hover:border-pink-500/50'
+                : 'bg-black/85 backdrop-blur-md text-slate-300 border-white/20 hover:text-pink-400 hover:border-pink-500/50'
             }`}
             title={!user ? "Sign in to add to cart" : inCart ? "In your Interested Cart" : "I'm Interested — Add to Cart"}
           >
@@ -111,11 +114,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>{event.eventCode}</span>
-            <span className="text-purple-300 font-bold">{formatCurrency(event.fee)}</span>
+            <span className="text-purple-400 font-semibold">{event.eventCode}</span>
+            <span className="text-slate-300">{event.teamSize}</span>
           </div>
 
-          <h3 className="text-xl font-bold text-white group-hover:text-purple-300 transition-colors leading-snug font-display">
+          <h3 className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors leading-snug font-display">
             {event.name}
           </h3>
           <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
@@ -132,10 +135,6 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
           <div className="flex items-center gap-2">
             <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span className="truncate">{event.venue}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>{event.teamSize}</span>
           </div>
         </div>
 
