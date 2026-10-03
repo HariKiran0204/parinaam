@@ -175,13 +175,14 @@ export async function POST(req: NextRequest) {
       await client.query('BEGIN');
 
       // Lock event rows in deterministic (sorted UUID) order to prevent deadlocks.
+      const evPlaceholders = eventIds.map((_, idx) => `$${idx + 1}`).join(', ');
       const eventsRes = await client.query(
         `SELECT id, name, fee, amrita_fee, other_fee, capacity, enrolled, registration_open, status, max_team_size
          FROM events
-         WHERE id = ANY($1::uuid[])
+         WHERE id IN (${evPlaceholders})
          ORDER BY id
          FOR UPDATE`,
-        [eventIds],
+        eventIds,
       );
 
       if (eventsRes.rows.length !== eventIds.length) {
@@ -201,10 +202,11 @@ export async function POST(req: NextRequest) {
       }
 
       // Reject if the user already has a CONFIRMED registration for any event in the cart.
+      const regPlaceholders = eventIds.map((_, idx) => `$${idx + 2}`).join(', ');
       const existingRegsRes = await client.query(
         `SELECT event_id FROM registrations
-         WHERE user_id = $1 AND event_id = ANY($2::uuid[]) AND status = 'CONFIRMED'`,
-        [session.userId, eventIds],
+         WHERE user_id = $1 AND event_id IN (${regPlaceholders}) AND status = 'CONFIRMED'`,
+        [session.userId, ...eventIds],
       );
       if (existingRegsRes.rows.length > 0) {
         const dup = targetEvents.find((e: any) => e.id === existingRegsRes.rows[0].event_id);
@@ -271,10 +273,11 @@ export async function POST(req: NextRequest) {
         // Validate team member college constraints server-side for each team event
         if (evt.max_team_size > 1 && teamMemberUserIds.length > 0) {
           const leaderIsAmrita = user.is_amrita_student || isInstitutionalEmail(user.email);
+          const memberPlaceholders = teamMemberUserIds.map((_, idx) => `$${idx + 1}`).join(', ');
 
           const memberRes = await client.query(
-            `SELECT id, is_amrita_student, email, verification_status, full_name FROM users WHERE id = ANY($1::uuid[]) AND role = 'student'`,
-            [teamMemberUserIds]
+            `SELECT id, is_amrita_student, email, verification_status, full_name FROM users WHERE id IN (${memberPlaceholders}) AND role = 'student'`,
+            teamMemberUserIds
           );
 
           for (const member of memberRes.rows) {

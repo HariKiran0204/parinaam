@@ -64,9 +64,10 @@ export async function POST(req: NextRequest) {
     // Validate team members if this is a team event
     if (isTeamEvent && team_member_user_ids.length > 0) {
       // Fetch team member data in one query
+      const memberPlaceholders = team_member_user_ids.map((_, idx) => `$${idx + 1}`).join(', ');
       const memberRes = await db.query(
-        `SELECT id, is_amrita_student, email, verification_status, college_name, full_name FROM users WHERE id = ANY($1::uuid[]) AND role = 'student'`,
-        [team_member_user_ids]
+        `SELECT id, is_amrita_student, email, verification_status, college_name, full_name FROM users WHERE id IN (${memberPlaceholders}) AND role = 'student'`,
+        team_member_user_ids
       );
 
       if (memberRes.rows.length !== team_member_user_ids.length) {

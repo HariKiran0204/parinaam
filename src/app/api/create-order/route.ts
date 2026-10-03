@@ -109,12 +109,13 @@ export async function POST(req: NextRequest) {
       const eventIds = [...new Set(rawEventIds)].sort();
 
       // Lock & fetch events to compute server-side amount
+      const evPlaceholders = eventIds.map((_, idx) => `$${idx + 1}`).join(', ');
       const eventsRes = await db.query(
         `SELECT id, name, fee, capacity, enrolled, registration_open, status
          FROM events
-         WHERE id = ANY($1::uuid[])
+         WHERE id IN (${evPlaceholders})
          ORDER BY id`,
-        [eventIds]
+        eventIds
       );
 
       if (eventsRes.rows.length !== eventIds.length) {
