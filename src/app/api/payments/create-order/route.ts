@@ -5,7 +5,7 @@ import { PoolClient } from 'pg';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { success, error, unauthorized, serverError } from '@/lib/apiResponse';
-import { calculatePayableFees, isStudentProfileComplete } from '@/lib/institutionPolicy';
+import { calculatePayableFees, isStudentProfileComplete, isInstitutionalEmail } from '@/lib/institutionPolicy';
 
 // ---------------------------------------------------------------------------
 // Internal error class — user-facing validation errors raised inside the
@@ -49,12 +49,12 @@ export async function POST(req: NextRequest) {
       const amount = parseInt(configResult.rows[0]?.value || '1000') * 100; // paise (₹1000)
 
       const userResult = await db.query(
-        `SELECT is_amrita_student, platform_fee_paid FROM users WHERE id = $1`,
+        `SELECT full_name, email, phone, is_amrita_student, platform_fee_paid FROM users WHERE id = $1`,
         [session.userId],
       );
       const userRow = userResult.rows[0];
 
-      if (userRow?.is_amrita_student) {
+      if (userRow?.is_amrita_student || isInstitutionalEmail(userRow?.email || session.email)) {
         await db.query(`UPDATE users SET platform_fee_paid = true, verification_status = 'verified' WHERE id = $1`, [session.userId]);
         return success({
           order_id: `free_amrita_${Date.now()}`,
@@ -69,18 +69,20 @@ export async function POST(req: NextRequest) {
       }
 
       const { createCashfreeOrder } = await import('@/lib/cashfree');
-      const cleanOrderId = `cf_pf_${Date.now()}_${session.userId.slice(0, 6)}`;
+      const cleanOrderId = `cf_pf_${Date.now()}_${session.userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6)}`;
+      const cleanPhone = (userRow?.phone || '9999999999').replace(/\D/g, '').slice(-10) || '9999999999';
       let cfOrder: any;
 
       try {
         cfOrder = await createCashfreeOrder({
           order_id: cleanOrderId,
           order_amount: 1000,
+          order_currency: 'INR',
           customer_details: {
-            customer_id: session.userId,
-            customer_name: userRow.full_name || 'Participant',
+            customer_id: session.userId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 50) || 'student',
+            customer_name: userRow?.full_name || 'Participant',
             customer_email: session.email,
-            customer_phone: userRow.phone || '9999999999',
+            customer_phone: cleanPhone,
           },
           order_note: 'Parinaam 2026 Official Festival Pass (₹1000)',
         });
@@ -146,7 +148,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-
     if (user.verification_status !== 'verified') {
       return error(
         'Your account verification is pending Super Admin approval. You will be able to register once verified.',
@@ -154,15 +155,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-
     // =========================================================================
     // PHASE A — PostgreSQL Transaction
     //
     // Boundary:  BEGIN → lock events → validate → insert payment →
     //            insert PENDING registrations → COMMIT
-    //
-    // The Razorpay API call occurs AFTER COMMIT so no PostgreSQL locks are
-    // held during the external network request.
     // =========================================================================
     client = await db.getClient();
 
@@ -241,11 +238,9 @@ export async function POST(req: NextRequest) {
       }
 
       // Determine if user is Amrita student for fee tier calculation
-      const { isInstitutionalEmail: checkIsAmrita } = require('@/lib/institutionPolicy');
-      const userIsAmrita = user.is_amrita_student || checkIsAmrita(user.email);
+      const userIsAmrita = user.is_amrita_student || isInstitutionalEmail(user.email);
 
       // Calculate total fee from DB values — use amrita_fee/other_fee tier if available on team event.
-      // Client-supplied amounts are never trusted.
       const targetEventsWithFee = targetEvents.map((evt: any) => {
         let effectiveFee = Number(evt.fee) || 0;
         if (evt.max_team_size > 1 && evt.amrita_fee != null && evt.other_fee != null) {
@@ -258,7 +253,6 @@ export async function POST(req: NextRequest) {
       const totalAmountPaise = feeCalc.totalFee * 100;
 
       // Insert one payment record in the intermediate 'created' state.
-      // razorpay_order_id is NULL here; it is set in Phase B after COMMIT.
       const paymentRes = await client.query(
         `INSERT INTO payments (user_id, type, amount, status)
          VALUES ($1, 'event_fee', $2, 'created')
@@ -268,9 +262,6 @@ export async function POST(req: NextRequest) {
       const paymentDbId: string = paymentRes.rows[0].id;
 
       // Insert one PENDING registration per event, all linked to this payment.
-      // ON CONFLICT handles the case where a prior hold exists (PENDING/CANCELLED).
-      // The WHERE guard prevents overwriting a CONFIRMED row (should not be reached
-      // given the check above, but is a defensive layer).
       for (const evt of targetEvents) {
         const teamName = (team_names as Record<string, string>)[evt.id] ?? null;
         const evtTeamData = (team_members_data as Record<string, any>)[evt.id];
@@ -279,8 +270,7 @@ export async function POST(req: NextRequest) {
 
         // Validate team member college constraints server-side for each team event
         if (evt.max_team_size > 1 && teamMemberUserIds.length > 0) {
-          const { isInstitutionalEmail: checkAmrita } = require('@/lib/institutionPolicy');
-          const leaderIsAmrita = user.is_amrita_student || checkAmrita(user.email);
+          const leaderIsAmrita = user.is_amrita_student || isInstitutionalEmail(user.email);
 
           const memberRes = await client.query(
             `SELECT id, is_amrita_student, email, verification_status, full_name FROM users WHERE id = ANY($1) AND role = 'student'`,
@@ -291,8 +281,7 @@ export async function POST(req: NextRequest) {
             if (member.verification_status !== 'verified') {
               throw new UserError(`Team member ${member.full_name} is not verified.`, 400);
             }
-            const { isInstitutionalEmail: chk } = require('@/lib/institutionPolicy');
-            const memberIsAmrita = member.is_amrita_student || chk(member.email);
+            const memberIsAmrita = member.is_amrita_student || isInstitutionalEmail(member.email);
             if (leaderIsAmrita && !memberIsAmrita) {
               throw new UserError(`Mixed-college teams not allowed: ${member.full_name} is from an external college but you are an Amrita student.`, 400);
             }
@@ -324,7 +313,7 @@ export async function POST(req: NextRequest) {
         const freeOrderId = `free_evt_${Date.now()}`;
         await client.query(
           `UPDATE payments
-           SET status = 'paid', razorpay_order_id = $1, updated_at = NOW()
+           SET status = 'paid', cf_order_id = $1, razorpay_order_id = $1, updated_at = NOW()
            WHERE id = $2`,
           [freeOrderId, paymentDbId],
         );
@@ -353,11 +342,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // ── Paid path — COMMIT and release all locks before calling Razorpay ────
+      // ── Paid path — COMMIT and release all locks before calling Cashfree ────
       await client.query('COMMIT');
       client.release();
       client = null;
-      // All PostgreSQL row locks are now released.
 
       txResult = {
         paymentDbId,
@@ -366,7 +354,6 @@ export async function POST(req: NextRequest) {
         isFree: false,
       };
     } catch (txErr) {
-      // Roll back and release before returning / re-throwing.
       if (client) {
         try {
           await client.query('ROLLBACK');
@@ -379,35 +366,32 @@ export async function POST(req: NextRequest) {
       if (txErr instanceof UserError) {
         return error(txErr.message, txErr.statusCode);
       }
-      throw txErr; // unexpected error — re-throw to outer catch
+      throw txErr;
     }
 
-    // txResult is guaranteed to be set here (free path returns above, errors throw).
     if (!txResult) return serverError();
 
     const { paymentDbId, totalAmountPaise, targetEventsCount } = txResult;
 
     // =========================================================================
     // PHASE B — Cashfree Order Creation (OUTSIDE the DB transaction)
-    //
-    // PostgreSQL locks have already been released by COMMIT above.
-    // Failure here marks the payment as 'failed' and cancels the PENDING
-    // registrations so the student can retry.
     // =========================================================================
     const { createCashfreeOrder } = await import('@/lib/cashfree');
     const totalAmountRupees = totalAmountPaise / 100;
-    const cleanOrderId = `cf_evt_${Date.now()}_${session.userId.slice(0, 6)}`;
+    const cleanOrderId = `cf_evt_${Date.now()}_${session.userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6)}`;
+    const cleanPhone = (user.phone || '9999999999').replace(/\D/g, '').slice(-10) || '9999999999';
     let cfOrder: any;
 
     try {
       cfOrder = await createCashfreeOrder({
         order_id: cleanOrderId,
         order_amount: totalAmountRupees,
+        order_currency: 'INR',
         customer_details: {
-          customer_id: session.userId,
+          customer_id: session.userId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 50) || 'student',
           customer_name: user.full_name || 'Participant',
           customer_email: user.email,
-          customer_phone: user.phone || '9999999999',
+          customer_phone: cleanPhone,
         },
         order_note: `Registration for ${targetEventsCount} Event(s)`,
       });
@@ -442,8 +426,7 @@ export async function POST(req: NextRequest) {
       description: `Registration for ${targetEventsCount} Event(s)`,
       payment_db_id: paymentDbId,
     });
-  } catch (err) {
-    // Ensure the client is always released on unexpected errors.
+  } catch (err: any) {
     if (client) {
       try {
         await client.query('ROLLBACK');
@@ -452,7 +435,7 @@ export async function POST(req: NextRequest) {
       }
       client.release();
     }
-    console.error('[create-order] Unexpected error:', (err as Error).message);
-    return serverError();
+    console.error('[create-order] Unexpected error:', err?.message || err);
+    return error(err?.message || 'Internal server error while initializing order.', 500);
   }
 }

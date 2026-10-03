@@ -68,7 +68,10 @@ if (pool) {
     ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_url TEXT;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS amrita_fee INTEGER;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS other_fee INTEGER;
+    ALTER TABLE registrations ADD COLUMN IF NOT EXISTS team_members JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE registrations ADD COLUMN IF NOT EXISTS team_member_user_ids JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE registrations ADD COLUMN IF NOT EXISTS payment_order_id VARCHAR(200);
+    ALTER TABLE registrations ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'pending';
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS cf_order_id TEXT;
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_session_id TEXT;
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS cf_payment_id TEXT;
