@@ -44,6 +44,7 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
   const router = useRouter();
 
   const [participationType, setParticipationType] = useState<'individual' | 'team'>('team');
+  const [targetTeamSize, setTargetTeamSize] = useState<number>(2);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamName, setTeamName] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -67,16 +68,22 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
   // Load existing team data if already in cart
   useEffect(() => {
     if (event && isOpen) {
+      const minSize = event.min_team_size || 2;
+      const maxSize = event.max_team_size || 3;
       const existing = getEventTeamData(event.id);
       if (existing) {
         if (existing.participationType) setParticipationType(existing.participationType);
-        if (existing.teamMembers) setTeamMembers(existing.teamMembers);
+        if (existing.teamMembers) {
+          setTeamMembers(existing.teamMembers);
+          setTargetTeamSize(Math.max(minSize, existing.teamMembers.length + 1));
+        }
         if (existing.teamName) setTeamName(existing.teamName);
       } else {
         const isTeamDefault = (event.max_team_size || 1) > 1;
         setParticipationType(isTeamDefault ? 'team' : 'individual');
         setTeamMembers([]);
         setTeamName('');
+        setTargetTeamSize(Math.max(minSize, 2));
       }
       setValidationError('');
     }
@@ -86,8 +93,8 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
 
   const isAmrita = user ? (user.is_amrita_student || isInstitutionalEmail(user.email)) : false;
   const isProfileComplete = isStudentProfileComplete(user);
-  const minTeamSize = event.min_team_size || 1;
-  const maxTeamSize = event.max_team_size || 1;
+  const minTeamSize = event.min_team_size || 2;
+  const maxTeamSize = event.max_team_size || 3;
   const isTeamCapable = maxTeamSize > 1;
   const allowIndividualChoice = minTeamSize <= 1 && isTeamCapable;
 
@@ -101,7 +108,7 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
 
   const effectiveFee = getEffectiveFee();
   const totalTeamCount = teamMembers.length + 1; // leader + added members
-  const isTeamComplete = !isTeamCapable || participationType === 'individual' || (totalTeamCount >= minTeamSize && totalTeamCount <= maxTeamSize);
+  const isTeamComplete = !isTeamCapable || participationType === 'individual' || (totalTeamCount >= minTeamSize && totalTeamCount === targetTeamSize);
 
   const handleAddToCart = () => {
     setValidationError('');
@@ -124,6 +131,10 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
         setValidationError(`Incomplete team: Please add at least ${minTeamSize - totalTeamCount} more team member(s) to reach the minimum size of ${minTeamSize}.`);
         return;
       }
+      if (totalTeamCount < targetTeamSize) {
+        setValidationError(`Incomplete team: You selected a team size of ${targetTeamSize}. Please add ${targetTeamSize - totalTeamCount} more member(s).`);
+        return;
+      }
       if (totalTeamCount > maxTeamSize) {
         setValidationError(`Team exceeds maximum allowed size of ${maxTeamSize} members.`);
         return;
@@ -141,8 +152,6 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
     onClose();
     openCart();
   };
-
-  const posterImg = event.poster_url || event.image || '';
 
   return (
     <div
@@ -292,7 +301,7 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
                   </div>
                 </div>
                 <span className="text-[10px] font-mono text-emerald-400 font-semibold shrink-0">
-                  Slot 1 of {maxTeamSize}
+                  Slot 1 of {targetTeamSize}
                 </span>
               </div>
 
@@ -301,9 +310,12 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
                 eventId={event.id}
                 minTeamSize={minTeamSize}
                 maxTeamSize={maxTeamSize}
+                targetSize={targetTeamSize}
+                onTargetSizeChange={setTargetTeamSize}
                 members={teamMembers}
                 onChange={setTeamMembers}
                 leaderIsAmrita={isAmrita}
+                showLeaderCard={false}
               />
             </div>
           )}
@@ -341,8 +353,8 @@ export const EventRegistrationModal: React.FC<EventRegistrationModalProps> = ({
             <ShoppingBag size={15} />
             <span>
               {!isTeamComplete
-                ? `Incomplete Team (Min ${minTeamSize} Members)`
-                : `Add to Cart — ${effectiveFee === 0 ? 'FREE' : `₹${effectiveFee}`}`}
+                ? `Complete ${targetTeamSize} Team Members to Proceed`
+                : `Register & Add to Cart — ${effectiveFee === 0 ? 'FREE' : `₹${effectiveFee}`}`}
             </span>
             {isTeamComplete && <ArrowRight size={14} />}
           </button>

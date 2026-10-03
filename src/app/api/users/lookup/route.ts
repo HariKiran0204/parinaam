@@ -18,15 +18,24 @@ export async function GET(req: NextRequest) {
     if (session.role !== 'student') return error('Only students can look up team members', 403);
 
     const { searchParams } = new URL(req.url);
+    const q = searchParams.get('q')?.trim();
     const email = searchParams.get('email')?.toLowerCase().trim();
     const roll = searchParams.get('roll')?.trim();
 
-    if (!email && !roll) {
+    const searchTerm = q || email || roll;
+    if (!searchTerm) {
       return error('Provide email or roll number to search');
     }
 
     let result;
-    if (email) {
+    if (q) {
+      result = await db.query(
+        `SELECT id, full_name, email, roll_number, is_amrita_student, college_name, verification_status
+         FROM users
+         WHERE (LOWER(email) = LOWER($1) OR LOWER(roll_number) = LOWER($1)) AND role = 'student'`,
+        [q]
+      );
+    } else if (email) {
       result = await db.query(
         `SELECT id, full_name, email, roll_number, is_amrita_student, college_name, verification_status
          FROM users
