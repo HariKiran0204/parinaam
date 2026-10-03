@@ -188,45 +188,52 @@ export const FestIdentity = () => {
 
         {/* ─── TRACK 1: Leftward Infinite Marquee (Logos & Flagships) ─── */}
         <div className="overflow-hidden flex py-1">
-          <div className="animate-marquee-left flex items-center gap-5 sm:gap-6 pr-5 sm:pr-6">
+          <div className="animate-marquee-left flex items-stretch gap-5 sm:gap-6 pr-5 sm:pr-6">
             {/* Duplicated twice for flawless seamless infinite loop */}
             {[...brandCards, ...brandCards].map((card, idx) => {
               const Icon = card.icon;
               return (
                 <div
                   key={`brand-track-${idx}`}
-                  className={`flex-shrink-0 w-72 sm:w-80 p-4 sm:p-5 rounded-2xl bg-gradient-to-br ${card.glow} border ${card.border} backdrop-blur-xl shadow-xl hover:scale-[1.03] transition-all duration-300 group cursor-default`}
+                  className={`flex-shrink-0 w-72 sm:w-80 h-52 p-4 sm:p-5 rounded-2xl bg-gradient-to-br ${card.glow} border ${card.border} backdrop-blur-xl shadow-xl hover:border-purple-300/80 hover:shadow-[0_0_25px_rgba(217,70,239,0.35)] transition-all duration-300 group cursor-default flex flex-col justify-between`}
                 >
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between h-7 mb-2">
                     <span
                       className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-md border ${card.tagColor}`}
                     >
                       {card.badge}
                     </span>
                     {Icon ? (
-                      <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 group-hover:text-pink-400 transition-colors">
-                        <Icon className="w-4 h-4" />
+                      <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 group-hover:text-pink-400 transition-colors">
+                        <Icon className="w-3.5 h-3.5" />
                       </div>
                     ) : null}
                   </div>
 
-                  {card.logo ? (
-                    <div className="h-12 flex items-center mb-3">
+                  <div className="h-11 flex items-center mb-2">
+                    {card.logo ? (
                       <img
                         src={card.logo}
                         alt={card.title}
-                        className="max-h-11 max-w-[200px] object-contain drop-shadow-[0_0_12px_rgba(217,70,239,0.35)]"
+                        className="max-h-10 max-w-[190px] object-contain drop-shadow-[0_0_12px_rgba(217,70,239,0.35)]"
                       />
-                    </div>
-                  ) : null}
+                    ) : Icon ? (
+                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.2)]">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                    ) : (
+                      <div className="h-10" />
+                    )}
+                  </div>
 
-                  <h3 className="font-bold text-base sm:text-lg text-white group-hover:text-purple-200 transition-colors leading-snug">
-                    {card.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-400 mt-1 line-clamp-1">
-                    {card.subtitle}
-                  </p>
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-base sm:text-lg text-white group-hover:text-purple-200 transition-colors leading-snug line-clamp-1">
+                      {card.title}
+                    </h3>
+                    <p className="text-xs text-slate-400 line-clamp-1">
+                      {card.subtitle}
+                    </p>
+                  </div>
                 </div>
               );
             })}
@@ -242,19 +249,19 @@ export const FestIdentity = () => {
               return (
                 <div
                   key={`stat-track-${idx}`}
-                  className={`flex-shrink-0 flex items-center gap-3.5 px-4 sm:px-5 py-3.5 rounded-xl border ${item.accent} backdrop-blur-md hover:bg-white/[0.04] transition-all duration-300 group cursor-default`}
+                  className={`flex-shrink-0 w-72 sm:w-80 h-[74px] flex items-center gap-3.5 px-4 sm:px-5 py-3 rounded-xl border ${item.accent} backdrop-blur-md hover:bg-white/[0.04] transition-all duration-300 group cursor-default`}
                 >
                   <div className={`p-2 rounded-lg bg-white/5 ${item.color} shrink-0`}>
                     <Icon className="w-5 h-5" />
                   </div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-mono tracking-wider text-slate-400 uppercase font-semibold">
+                  <div className="text-left overflow-hidden">
+                    <p className="text-[10px] font-mono tracking-wider text-slate-400 uppercase font-semibold truncate">
                       {item.label}
                     </p>
-                    <p className={`font-black text-sm sm:text-base ${item.color} leading-tight`}>
+                    <p className={`font-black text-sm sm:text-base ${item.color} leading-tight truncate`}>
                       {item.value}
                     </p>
-                    <p className="text-[11px] text-slate-400 leading-none mt-0.5">
+                    <p className="text-[11px] text-slate-400 leading-none mt-0.5 truncate">
                       {item.description}
                     </p>
                   </div>

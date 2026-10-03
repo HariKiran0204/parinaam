@@ -71,9 +71,10 @@ export const FeaturedEvents = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const sortedEvents = [...events].sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0));
   const filteredEvents = activeCategory === 'All'
-    ? events.slice(0, 6)
-    : events.filter((e) => e.category === activeCategory);
+    ? sortedEvents.slice(0, 6)
+    : sortedEvents.filter((e) => e.category === activeCategory);
 
   const handleQuickRegister = (event: FestEvent) => {
     router.push(user ? '/events' : `/auth/register?event=${event.id}`);

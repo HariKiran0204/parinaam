@@ -52,7 +52,12 @@ export default function EventsPage() {
     const res  = await fetch(`/api/events?${params}`);
     const data = await res.json();
     if (data.success) {
-      setEvents(data.data.events);
+      const sorted = [...data.data.events].sort((a: Event, b: Event) => {
+        const aFlag = (a.is_popular || a.is_featured) ? 0 : 1;
+        const bFlag = (b.is_popular || b.is_featured) ? 0 : 1;
+        return aFlag - bFlag;
+      });
+      setEvents(sorted);
       setTotal(data.data.pagination.total);
     }
     setLoading(false);

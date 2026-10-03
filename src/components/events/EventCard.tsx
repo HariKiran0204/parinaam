@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { FestEvent } from '../../types';
-import { Calendar, Clock, MapPin, Users, Trophy, ChevronRight, Check, Heart, ShoppingBag, ExternalLink, Ticket } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Trophy, ChevronRight, Check, ShoppingBag, ExternalLink, Ticket } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import { useFest } from '../../context/FestContext';
 import { useCart } from '../../context/CartContext';
@@ -21,7 +21,7 @@ interface EventCardProps {
 export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
   const { user } = useAuth();
   const router = useRouter();
-  const { isInCart, isConfirmed, openCart } = useCart();
+  const { isInCart, isConfirmed } = useCart();
   const registered = isConfirmed(event.id);
   const inCart = isInCart(event.id);
 
@@ -51,31 +51,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
     }
   };
 
-  return (
-    <div className="bg-[#0b0716] border border-purple-900/50 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-purple-500/70 transition-all duration-300 group mi-glow-card">
-      
-      {/* Top Header Pill Bar — Dedicated clean bar with NO overlapping behind poster */}
-      <div className="px-4 py-2.5 bg-[#0e091e] border-b border-purple-900/40 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-mono font-bold uppercase text-purple-300 px-2.5 py-0.5 rounded-md bg-purple-950/80 border border-purple-800/70 truncate max-w-[150px]">
-          {event.category}
-        </span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {hasUnstop && (
-            <span className="text-[10px] font-mono font-bold uppercase bg-blue-600/90 text-white px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
-              <ExternalLink size={10} /> Unstop
-            </span>
-          )}
-          {event.isPopular && (
-            <span className="text-[10px] font-mono font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded">
-              Flagship
-            </span>
-          )}
-          <span className="text-[11px] font-mono font-bold text-amber-300 px-2 py-0.5 rounded bg-black/60 border border-amber-500/30">
-            {event.fee === 0 ? 'FREE' : formatCurrency(event.fee)}
-          </span>
-        </div>
-      </div>
-
+  const cardInner = (
+    <>
       {/* Image & Badges Banner — Big Full 3:4 Poster Showcase */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#070410] flex items-center justify-center border-b border-purple-900/30">
         <img
@@ -90,6 +67,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
           className="relative z-10 w-full h-full object-contain p-1 group-hover:scale-[1.02] transition-transform duration-300 drop-shadow-2xl"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b0716] via-transparent to-transparent pointer-events-none z-10" />
+
         {/* Prize Pool Tag */}
         <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-lg">
           <Trophy className="w-3.5 h-3.5 text-amber-400" />
@@ -140,8 +118,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
           </div>
         </div>
 
-        {/* Actions Footer */}
+        {/* Actions Footer with Price Tag at bottom */}
         <div className="pt-3 border-t border-purple-950 flex items-center justify-between gap-2">
+          <span className="text-[11px] font-mono font-bold text-amber-300 px-2.5 py-1 rounded-lg bg-black/60 border border-amber-500/30 shrink-0">
+            {event.fee === 0 ? 'FREE' : formatCurrency(event.fee)}
+          </span>
           <button
             onClick={() => onSelect(event)}
             className="flex-1 py-2 px-3 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 text-xs font-semibold text-purple-200 border border-purple-900/60 transition-colors flex items-center justify-center gap-1"
@@ -192,6 +173,22 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
           )}
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <>
+      {event.isPopular ? (
+        <div className="flagship-wrapper h-full flex flex-col">
+          <div className="bg-[#0b0716] border-0 rounded-[calc(1.125rem-2px)] flex flex-col justify-between transition-all duration-300 group mi-glow-card h-full">
+            {cardInner}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-[#0b0716] border border-purple-900/50 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-purple-500/70 transition-all duration-300 group mi-glow-card h-full">
+          {cardInner}
+        </div>
+      )}
 
       {/* Team / Individual Registration Modal */}
       <EventRegistrationModal
@@ -213,8 +210,6 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
         isOpen={regModalOpen}
         onClose={() => setRegModalOpen(false)}
       />
-    </div>
+    </>
   );
 };
-
-
