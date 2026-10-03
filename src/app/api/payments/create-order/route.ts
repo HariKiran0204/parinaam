@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       await client.query('BEGIN');
 
       // Lock event rows in deterministic (sorted UUID) order to prevent deadlocks.
-      const evPlaceholders = eventIds.map((_, idx) => `$${idx + 1}`).join(', ');
+      const evPlaceholders = eventIds.map((_: string, idx: number) => `$${idx + 1}`).join(', ');
       const eventsRes = await client.query(
         `SELECT id, name, fee, amrita_fee, other_fee, capacity, enrolled, registration_open, status, max_team_size
          FROM events
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Reject if the user already has a CONFIRMED registration for any event in the cart.
-      const regPlaceholders = eventIds.map((_, idx) => `$${idx + 2}`).join(', ');
+      const regPlaceholders = eventIds.map((_: string, idx: number) => `$${idx + 2}`).join(', ');
       const existingRegsRes = await client.query(
         `SELECT event_id FROM registrations
          WHERE user_id = $1 AND event_id IN (${regPlaceholders}) AND status = 'CONFIRMED'`,
@@ -267,13 +267,13 @@ export async function POST(req: NextRequest) {
       for (const evt of targetEvents) {
         const teamName = (team_names as Record<string, string>)[evt.id] ?? null;
         const evtTeamData = (team_members_data as Record<string, any>)[evt.id];
-        const teamMemberUserIds = evtTeamData?.team_member_user_ids ?? [];
+        const teamMemberUserIds: string[] = evtTeamData?.team_member_user_ids ?? [];
         const teamMembers = evtTeamData?.team_members ?? [];
 
         // Validate team member college constraints server-side for each team event
         if (evt.max_team_size > 1 && teamMemberUserIds.length > 0) {
           const leaderIsAmrita = user.is_amrita_student || isInstitutionalEmail(user.email);
-          const memberPlaceholders = teamMemberUserIds.map((_, idx) => `$${idx + 1}`).join(', ');
+          const memberPlaceholders = teamMemberUserIds.map((_: string, idx: number) => `$${idx + 1}`).join(', ');
 
           const memberRes = await client.query(
             `SELECT id, is_amrita_student, email, verification_status, full_name FROM users WHERE id IN (${memberPlaceholders}) AND role = 'student'`,

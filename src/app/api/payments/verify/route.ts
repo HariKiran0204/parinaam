@@ -340,7 +340,7 @@ export async function POST(req: NextRequest) {
       // ── Lock all relevant event rows in deterministic (sorted UUID) order ──
       // Reading capacity and enrolled UNDER the lock ensures accurate values.
       const eventIds = [...new Set(linkedRegs.map((r: any) => r.event_id as string))].sort();
-      const evPlaceholders = eventIds.map((_, idx) => `$${idx + 1}`).join(', ');
+      const evPlaceholders = eventIds.map((_: string, idx: number) => `$${idx + 1}`).join(', ');
       const evtRes = await client.query(
         `SELECT id, capacity, enrolled, fee
          FROM events
