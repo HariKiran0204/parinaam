@@ -96,6 +96,13 @@ export async function POST(req: NextRequest) {
 
         client = await db.getClient();
         try {
+          // Ensure schema columns exist
+          await client.query(`
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS cf_order_id TEXT;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS cf_payment_id TEXT;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_session_id TEXT;
+          `).catch(() => {});
+
           await client.query('BEGIN');
 
           // Idempotency check: Look up existing user by email
@@ -471,7 +478,8 @@ export async function POST(req: NextRequest) {
       }
       client.release();
     }
-    console.error('[verify] Unexpected error:', (err as Error).message);
-    return serverError();
+    const errorMsg = (err as Error)?.message || 'Payment verification failed.';
+    console.error('[verify] Unexpected error stack:', err);
+    return error(errorMsg, 500);
   }
 }

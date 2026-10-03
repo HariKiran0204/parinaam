@@ -3,9 +3,18 @@ import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'parinaam-2026-super-secret-key-change-in-production'
-);
+function getSecret() {
+  return new TextEncoder().encode(
+    process.env.JWT_SECRET || 'parinaam-2026-super-secret-key-change-in-production'
+  );
+}
+
+function getAesKey() {
+  return crypto
+    .createHash('sha256')
+    .update(process.env.JWT_SECRET || 'parinaam-2026-super-secret-key-change-in-production')
+    .digest();
+}
 
 export type JWTPayload = {
   userId: string;
@@ -21,22 +30,17 @@ export async function signToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): Promi
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(SECRET);
+    .sign(getSecret());
 }
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload as JWTPayload;
   } catch {
     return null;
   }
 }
-
-const AES_KEY = crypto
-  .createHash('sha256')
-  .update(process.env.JWT_SECRET || 'parinaam-2026-super-secret-key-change-in-production')
-  .digest();
 
 export async function signRegistrationToken(payload: Record<string, any>): Promise<string> {
   const payloadWithExpiry = {
@@ -44,7 +48,7 @@ export async function signRegistrationToken(payload: Record<string, any>): Promi
     exp: Math.floor(Date.now() / 1000) + 7200, // 2 hours
   };
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', AES_KEY, iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getAesKey(), iv);
   let encrypted = cipher.update(JSON.stringify(payloadWithExpiry), 'utf8', 'hex');
   encrypted += cipher.final('hex');
   const authTag = cipher.getAuthTag().toString('hex');
@@ -59,7 +63,7 @@ export async function verifyRegistrationToken(token: string): Promise<Record<str
     const [ivHex, authTagHex, encryptedHex] = parts;
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-gcm', AES_KEY, iv);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getAesKey(), iv);
     decipher.setAuthTag(authTag);
     let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
     decrypted += decipher.final('utf8');

@@ -209,9 +209,12 @@ CREATE TABLE IF NOT EXISTS payments (
   event_id UUID REFERENCES events(id),
   registration_id UUID REFERENCES registrations(id),
   
-  amount INTEGER NOT NULL,                -- in INR paise (Razorpay)
+  amount INTEGER NOT NULL,                -- in INR paise (e.g. 100000)
   currency VARCHAR(5) DEFAULT 'INR',
   
+  cf_order_id VARCHAR(200),
+  cf_payment_id VARCHAR(200),
+  payment_session_id TEXT,
   razorpay_order_id VARCHAR(200),
   razorpay_payment_id VARCHAR(200),
   razorpay_signature VARCHAR(500),
