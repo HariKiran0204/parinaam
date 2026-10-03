@@ -72,6 +72,11 @@ export async function launchCashfreeCheckout(options: LaunchCashfreeOptions): Pr
     return;
   }
 
+  if (!options.paymentSessionId || options.paymentSessionId.startsWith('session_mock_')) {
+    options.onFailure?.('Invalid or missing Cashfree payment session. Please verify that live Cashfree keys are loaded in .env.local on the server.');
+    return;
+  }
+
   const appId = process.env.NEXT_PUBLIC_CASHFREE_APP_ID || '';
   const isExplicitSandbox = process.env.NEXT_PUBLIC_CASHFREE_MODE === 'sandbox';
   const mode =

@@ -178,13 +178,7 @@ export async function POST(req: NextRequest) {
       });
     } catch (cfErr: any) {
       console.error('[Cashfree Registration Order Error]', cfErr);
-      cfOrder = {
-        order_id: cleanOrderId,
-        cf_order_id: cleanOrderId,
-        payment_session_id: `session_mock_${Date.now()}`,
-        order_amount: STANDARD_PLATFORM_FEE_INR,
-        order_currency: 'INR',
-      };
+      return error(`Payment gateway initialization failed: ${cfErr.message || 'Unable to create Cashfree payment session'}`, 502);
     }
 
     const orderData = {

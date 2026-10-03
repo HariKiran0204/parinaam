@@ -82,6 +82,14 @@ export async function createCashfreeOrder(
   const { appId, secretKey, apiVersion } = getCashfreeConfig();
   const baseUrl = getCashfreeBaseUrl();
 
+  if (!appId || !secretKey) {
+    throw new CashfreeError(
+      'CASHFREE_APP_ID or CASHFREE_SECRET_KEY is missing in server environment. Please configure .env.production / .env.local on the server.',
+      500,
+      'MISSING_CREDENTIALS'
+    );
+  }
+
   // Validate amount
   if (typeof params.order_amount !== 'number' || params.order_amount <= 0) {
     throw new CashfreeError('Order amount must be a positive number.', 400, 'INVALID_AMOUNT');
