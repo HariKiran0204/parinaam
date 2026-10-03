@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
 
     if (!targetUserId && (payment_db_id || effectiveOrderId)) {
       const pRes = await db.query(
-        `SELECT user_id FROM payments WHERE id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $2`,
-        [payment_db_id ?? null, effectiveOrderId ?? null]
+        `SELECT user_id FROM payments WHERE id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $3`,
+        [payment_db_id ?? null, effectiveOrderId ?? null, effectiveOrderId ?? null]
       );
       if (pRes.rows.length > 0) {
         targetUserId = pRes.rows[0].user_id;
@@ -195,8 +195,8 @@ export async function POST(req: NextRequest) {
 
         // Idempotency check: if payment already marked paid
         const pRes = await db.query(
-          `SELECT id, status, user_id FROM payments WHERE (id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3`,
-          [payment_db_id ?? null, effectiveOrderId ?? null, targetUserId]
+          `SELECT id, status, user_id FROM payments WHERE (id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $3) AND user_id = $4`,
+          [payment_db_id ?? null, effectiveOrderId ?? null, effectiveOrderId ?? null, targetUserId]
         );
 
         if (pRes.rows.length > 0 && pRes.rows[0].status === 'paid') {
@@ -215,8 +215,8 @@ export async function POST(req: NextRequest) {
         await db.query(
           `UPDATE payments
            SET cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, status = 'paid', updated_at = NOW()
-           WHERE (id::text = $3 OR cf_order_id = $4 OR razorpay_order_id = $4) AND user_id = $5`,
-          [payId, sig, payment_db_id ?? null, effectiveOrderId ?? null, targetUserId],
+           WHERE (id::text = $3 OR cf_order_id = $4 OR razorpay_order_id = $5) AND user_id = $6`,
+          [payId, sig, payment_db_id ?? null, effectiveOrderId ?? null, effectiveOrderId ?? null, targetUserId],
         );
         const userUpdateRes = await db.query(
           `UPDATE users
@@ -279,11 +279,11 @@ export async function POST(req: NextRequest) {
 
       // ── Lock the payment row to prevent concurrent verification attempts ───
       const paymentRes = await client.query(
-        `SELECT id, status, amount, cf_order_id, razorpay_order_id
+        `SELECT id, status, amount, cf_order_id, razorpay_order_id, user_id
          FROM payments
-         WHERE (id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3
+         WHERE (id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $3) AND user_id = $4
          FOR UPDATE`,
-        [payment_db_id ?? null, effectiveOrderId ?? null, targetUserId],
+        [payment_db_id ?? null, effectiveOrderId ?? null, effectiveOrderId ?? null, targetUserId],
       );
 
       if (paymentRes.rows.length === 0) {
