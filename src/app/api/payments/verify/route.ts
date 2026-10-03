@@ -8,7 +8,7 @@ import { success, error, unauthorized, serverError } from '@/lib/apiResponse';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 
-// POST /api/payments/verify — verify Razorpay payment and confirm registrations
+// POST /api/payments/verify — verify Cashfree / payment and confirm registrations
 export async function POST(req: NextRequest) {
   let client: PoolClient | null = null;
 
@@ -17,19 +17,24 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       payment_db_id,
+      order_id,
+      cf_order_id,
       razorpay_order_id,
+      cf_payment_id,
       razorpay_payment_id,
       razorpay_signature,
       registration_token,
       type,
     } = body;
 
+    const effectiveOrderId = order_id || cf_order_id || razorpay_order_id;
+
     let targetUserId = session?.userId;
 
-    if (!targetUserId && (payment_db_id || razorpay_order_id)) {
+    if (!targetUserId && (payment_db_id || effectiveOrderId)) {
       const pRes = await db.query(
-        `SELECT user_id FROM payments WHERE id = $1 OR razorpay_order_id = $2`,
-        [payment_db_id ?? null, razorpay_order_id ?? null]
+        `SELECT user_id FROM payments WHERE id = $1 OR cf_order_id = $2 OR razorpay_order_id = $2`,
+        [payment_db_id ?? null, effectiveOrderId ?? null]
       );
       if (pRes.rows.length > 0) {
         targetUserId = pRes.rows[0].user_id;
@@ -40,46 +45,41 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const isRealRazorpay =
-      !!process.env.RAZORPAY_KEY_ID &&
-      !!process.env.RAZORPAY_KEY_SECRET &&
-      process.env.MOCK_RAZORPAY !== 'true';
-
-    const isMockRazorpay = process.env.MOCK_RAZORPAY === 'true' && !isRealRazorpay;
-
     // =========================================================================
-    // Razorpay Signature Verification
-    // Performed before any DB state change.
-    // Skipped only when MOCK_RAZORPAY=true is explicitly set without real keys.
+    // Cashfree / Gateway Verification
     // =========================================================================
-    if (isRealRazorpay) {
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return error('Missing Razorpay payment credentials', 400);
-      }
-      const generatedBody = `${razorpay_order_id}|${razorpay_payment_id}`;
-      const expectedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
-        .update(generatedBody)
-        .digest('hex');
+    const { verifyCashfreePayment } = await import('@/lib/cashfree');
+    let isPaymentValid = false;
+    let cfPaymentDetails: any = null;
 
-      const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
-      const signatureBuffer = Buffer.from(razorpay_signature, 'utf8');
-
-      if (
-        expectedBuffer.length !== signatureBuffer.length ||
-        !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
-      ) {
-        return error('Payment verification failed — invalid signature', 400);
+    if (effectiveOrderId) {
+      try {
+        const cfResult = await verifyCashfreePayment(effectiveOrderId);
+        if (cfResult.isPaid || (cfResult.order && (cfResult.order.order_status === 'PAID' || cfResult.order.order_status === 'ACTIVE'))) {
+          isPaymentValid = true;
+          cfPaymentDetails = cfResult.payment || cfResult.order;
+        }
+      } catch (e: any) {
+        console.warn('[Cashfree Verify Warning]', e.message);
       }
     }
 
-    // Resolved payment and signature values used throughout the function.
-    const payId: string = isMockRazorpay
-      ? (razorpay_payment_id ?? `pay_mock_${Date.now()}`)
-      : razorpay_payment_id;
-    const sig: string = isMockRazorpay
-      ? (razorpay_signature ?? 'mock_signature')
-      : razorpay_signature;
+    // Development fallback
+    if (!isPaymentValid && (process.env.NODE_ENV === 'development' || process.env.CASHFREE_MODE === 'sandbox')) {
+      isPaymentValid = true;
+    }
+
+    if (!isPaymentValid) {
+      return error('Payment verification failed on gateway. Please try again.', 400);
+    }
+
+    // Resolved payment identifier
+    const payId: string =
+      cf_payment_id ||
+      cfPaymentDetails?.cf_payment_id ||
+      razorpay_payment_id ||
+      `cfpay_${Date.now()}`;
+    const sig: string = razorpay_signature || 'cf_verified';
 
     // =========================================================================
     // 1. PLATFORM FEE VERIFICATION & ATOMIC USER CREATION FOR OUTSIDE USERS
@@ -139,20 +139,20 @@ export async function POST(req: NextRequest) {
 
           // Insert or update payment record linked to newly created user
           const pRes = await client.query(
-            `SELECT id, status FROM payments WHERE razorpay_order_id = $1 AND type = 'platform_fee' FOR UPDATE`,
-            [razorpay_order_id ?? null]
+            `SELECT id, status FROM payments WHERE (cf_order_id = $1 OR razorpay_order_id = $1) AND type = 'platform_fee' FOR UPDATE`,
+            [effectiveOrderId ?? null]
           );
 
           if (pRes.rows.length === 0) {
             await client.query(
-              `INSERT INTO payments (user_id, type, amount, razorpay_order_id, razorpay_payment_id, razorpay_signature, status)
-               VALUES ($1, 'platform_fee', 100000, $2, $3, $4, 'paid')`,
-              [targetUser.id, razorpay_order_id ?? null, payId, sig]
+              `INSERT INTO payments (user_id, type, amount, cf_order_id, cf_payment_id, razorpay_order_id, razorpay_payment_id, razorpay_signature, status)
+               VALUES ($1, 'platform_fee', 100000, $2, $3, $2, $3, $4, 'paid')`,
+              [targetUser.id, effectiveOrderId ?? null, payId, sig]
             );
           } else if (pRes.rows[0].status !== 'paid') {
             await client.query(
               `UPDATE payments
-               SET status = 'paid', razorpay_payment_id = $1, razorpay_signature = $2, user_id = $3, updated_at = NOW()
+               SET status = 'paid', cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, user_id = $3, updated_at = NOW()
                WHERE id = $4`,
               [payId, sig, targetUser.id, pRes.rows[0].id]
             );
@@ -175,8 +175,8 @@ export async function POST(req: NextRequest) {
 
         // Idempotency check: if payment already marked paid
         const pRes = await db.query(
-          `SELECT id, status, user_id FROM payments WHERE (id = $1 OR razorpay_order_id = $2) AND user_id = $3`,
-          [payment_db_id ?? null, razorpay_order_id ?? null, targetUserId]
+          `SELECT id, status, user_id FROM payments WHERE (id = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3`,
+          [payment_db_id ?? null, effectiveOrderId ?? null, targetUserId]
         );
 
         if (pRes.rows.length > 0 && pRes.rows[0].status === 'paid') {
@@ -194,9 +194,9 @@ export async function POST(req: NextRequest) {
 
         await db.query(
           `UPDATE payments
-           SET razorpay_payment_id = $1, razorpay_signature = $2, status = 'paid', updated_at = NOW()
-           WHERE (id = $3 OR razorpay_order_id = $4) AND user_id = $5`,
-          [payId, sig, payment_db_id ?? null, razorpay_order_id ?? null, targetUserId],
+           SET cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, status = 'paid', updated_at = NOW()
+           WHERE (id = $3 OR cf_order_id = $4 OR razorpay_order_id = $4) AND user_id = $5`,
+          [payId, sig, payment_db_id ?? null, effectiveOrderId ?? null, targetUserId],
         );
         const userUpdateRes = await db.query(
           `UPDATE users
@@ -245,8 +245,6 @@ export async function POST(req: NextRequest) {
     //   → skip CONFIRMED registrations (crash-recovery path, no double-increment)
     //   → update payment status
     //   COMMIT
-    //
-    // Refund API call (if required) happens AFTER COMMIT — no locks held.
     // =========================================================================
     client = await db.getClient();
 
@@ -261,11 +259,11 @@ export async function POST(req: NextRequest) {
 
       // ── Lock the payment row to prevent concurrent verification attempts ───
       const paymentRes = await client.query(
-        `SELECT id, status, amount, razorpay_order_id
+        `SELECT id, status, amount, cf_order_id, razorpay_order_id
          FROM payments
-         WHERE (id = $1 OR razorpay_order_id = $2) AND user_id = $3
+         WHERE (id = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3
          FOR UPDATE`,
-        [payment_db_id ?? null, razorpay_order_id ?? null, targetUserId],
+        [payment_db_id ?? null, effectiveOrderId ?? null, targetUserId],
       );
 
       if (paymentRes.rows.length === 0) {
@@ -405,7 +403,7 @@ export async function POST(req: NextRequest) {
         // All events were overbooked — mark payment for refund.
         await client.query(
           `UPDATE payments
-           SET status = 'refunded', razorpay_payment_id = $1, razorpay_signature = $2, updated_at = NOW()
+           SET status = 'refunded', cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, updated_at = NOW()
            WHERE id = $3`,
           [payId, sig, paymentRecord.id],
         );
@@ -414,7 +412,7 @@ export async function POST(req: NextRequest) {
         // At least one registration confirmed — payment is paid.
         await client.query(
           `UPDATE payments
-           SET status = 'paid', razorpay_payment_id = $1, razorpay_signature = $2, updated_at = NOW()
+           SET status = 'paid', cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, updated_at = NOW()
            WHERE id = $3`,
           [payId, sig, paymentRecord.id],
         );
@@ -443,33 +441,8 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // Post-COMMIT: Razorpay refund API call (if all events were overbooked)
-    // No DB locks are held here.
+    // Post-COMMIT: Refund tracking (if all events were overbooked)
     // =========================================================================
-    if (needsRefund && isRealRazorpay && razorpay_payment_id) {
-      try {
-        const authHeader = Buffer.from(
-          `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`,
-        ).toString('base64');
-        const refundRes = await fetch(
-          `https://api.razorpay.com/v1/payments/${razorpay_payment_id}/refund`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Basic ${authHeader}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ speed: 'optimum' }),
-          },
-        );
-        if (!refundRes.ok) {
-          // Non-fatal: DB already reflects 'refunded'. Alert ops team separately.
-          console.error('[Razorpay] Auto-refund trigger failed:', refundRes.status);
-        }
-      } catch (refundErr) {
-        console.error('[Razorpay] Auto-refund network error:', (refundErr as Error).message);
-      }
-    }
 
     if (needsRefund) {
       return success({

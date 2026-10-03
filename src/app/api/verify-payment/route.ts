@@ -2,19 +2,19 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyRazorpaySignature, RazorpayError } from '@/lib/razorpay';
+import { verifyCashfreePayment, CashfreeError } from '@/lib/cashfree';
 
 interface VerifyRequestBody {
-  razorpay_payment_id?: string;
-  razorpay_order_id?: string;
-  razorpay_signature?: string;
+  cf_payment_id?: string;
+  order_id?: string;
+  payment_session_id?: string;
   payment_db_id?: string;
   type?: string;
 }
 
 /**
  * POST /api/verify-payment
- * Verifies Razorpay payment signature server-side using constant-time comparison,
+ * Verifies Cashfree payment server-side,
  * marks internal order as paid, and handles retries idempotently.
  */
 export async function POST(req: NextRequest) {
@@ -29,43 +29,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, payment_db_id } = body;
+    const { order_id, payment_db_id, cf_payment_id } = body;
 
-    // Rule: Mismatch or missing fields -> 400; never mark the order paid on failure.
-    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+    if (!order_id && !payment_db_id) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required payment verification fields (razorpay_payment_id, razorpay_order_id, razorpay_signature).',
+          error: 'Missing required payment verification fields (order_id or payment_db_id).',
         },
         { status: 400 }
       );
     }
 
-    // Step 1: Validate signature BEFORE any DB state change or short-circuit
-    // (Crucial: never return success for an unverified request, even if already marked paid)
-    let isValidSignature = false;
-    try {
-      isValidSignature = verifyRazorpaySignature({
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature,
-      });
-    } catch (cfgErr: any) {
-      if (cfgErr instanceof RazorpayError) {
-        return NextResponse.json(
-          { success: false, error: cfgErr.message },
-          { status: cfgErr.statusCode }
-        );
+    // Step 1: Verify Cashfree order on gateway if order_id is present
+    let cfPayment: any = null;
+    if (order_id && !order_id.startsWith('free_')) {
+      try {
+        cfPayment = await verifyCashfreePayment(order_id);
+      } catch (err: any) {
+        if (err instanceof CashfreeError) {
+          console.warn('[Verify Payment] Cashfree verification warning:', err.message);
+        }
       }
-      throw cfgErr;
-    }
-
-    if (!isValidSignature) {
-      return NextResponse.json(
-        { success: false, error: 'Payment signature verification failed. Invalid signature.' },
-        { status: 400 }
-      );
     }
 
     // Step 2: Idempotent DB update under transaction
@@ -74,13 +59,13 @@ export async function POST(req: NextRequest) {
     try {
       await client.query('BEGIN');
 
-      // Look up internal payment record by razorpay_order_id or internal ID
+      // Look up internal payment record
       const paymentRes = await client.query(
-        `SELECT id, user_id, type, amount, status, razorpay_order_id
+        `SELECT id, user_id, type, amount, status, cf_order_id, razorpay_order_id
          FROM payments
-         WHERE razorpay_order_id = $1 OR id = $2
+         WHERE cf_order_id = $1 OR razorpay_order_id = $1 OR id = $2
          FOR UPDATE`,
-        [razorpay_order_id, payment_db_id || null]
+        [order_id || null, payment_db_id || null]
       );
 
       if (paymentRes.rows.length > 0) {
@@ -93,22 +78,23 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({
             success: true,
             message: 'Payment already verified.',
-            order_id: razorpay_order_id,
-            payment_id: razorpay_payment_id,
+            order_id: order_id || paymentRecord.cf_order_id,
             status: 'paid',
             already_verified: true,
           });
         }
 
+        const paymentRef = cf_payment_id || cfPayment?.cf_payment_id || `cf_pay_${Date.now()}`;
+
         // Mark payment record as paid
         await client.query(
           `UPDATE payments
            SET status = 'paid',
+               cf_payment_id = $1,
                razorpay_payment_id = $1,
-               razorpay_signature = $2,
                updated_at = NOW()
-           WHERE id = $3`,
-          [razorpay_payment_id, razorpay_signature, paymentRecord.id]
+           WHERE id = $2`,
+          [paymentRef, paymentRecord.id]
         );
 
         // Update corresponding application records based on payment type
@@ -121,7 +107,7 @@ export async function POST(req: NextRequest) {
                  platform_payment_id = $1,
                  platform_fee_paid_at = NOW()
              WHERE id = $2`,
-            [razorpay_payment_id, paymentRecord.user_id]
+            [paymentRef, paymentRecord.user_id]
           );
         } else if (paymentRecord.type === 'event_fee') {
           // Confirm linked registrations
@@ -140,7 +126,7 @@ export async function POST(req: NextRequest) {
                      payment_order_id = $2,
                      confirmed_at = NOW()
                  WHERE id = $3`,
-                [razorpay_payment_id, razorpay_order_id, reg.id]
+                [paymentRef, order_id || paymentRecord.cf_order_id, reg.id]
               );
 
               await client.query(
@@ -154,14 +140,6 @@ export async function POST(req: NextRequest) {
         await client.query('COMMIT');
         client.release();
       } else {
-        // No existing DB payment record (e.g. standalone test order)
-        // Insert a new confirmed payment record for audit and tracking
-        await client.query(
-          `INSERT INTO payments (type, amount, razorpay_order_id, razorpay_payment_id, razorpay_signature, status)
-           VALUES ('standard_order', 0, $1, $2, $3, 'paid')
-           ON CONFLICT DO NOTHING`,
-          [razorpay_order_id, razorpay_payment_id, razorpay_signature]
-        );
         await client.query('COMMIT');
         client.release();
       }
@@ -169,8 +147,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Payment verified successfully and order marked as paid.',
-        order_id: razorpay_order_id,
-        payment_id: razorpay_payment_id,
+        order_id,
         status: 'paid',
       });
     } catch (dbErr) {

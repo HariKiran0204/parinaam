@@ -7,8 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, Loader2, AlertCircle, CheckCircle2, AlertTriangle, Users } from 'lucide-react';
 import Link from 'next/link';
 import { isInstitutionalEmail, STANDARD_PLATFORM_FEE_INR, isStudentProfileComplete } from '@/lib/institutionPolicy';
-import { MockRazorpayModal } from './MockRazorpayModal';
-import { loadRazorpayCheckoutScript } from '@/lib/razorpayCheckout';
+import { MockPaymentModal } from './MockPaymentModal';
 import { TeamMemberSelector, TeamMember } from '@/components/events/TeamMemberSelector';
 
 interface CartDrawerProps {
@@ -241,17 +240,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
         return;
       }
 
-      // Step 2B: Paid Events Cart — Trigger Razorpay Modal or Mock Checkout
-      const { order_id, amount, payment_db_id, key_id, is_mock } = orderData.data;
+      // Step 2B: Paid Events Cart — Trigger Cashfree Modal or Mock Checkout
+      const { order_id, cf_order_id, payment_session_id, amount, payment_db_id, is_mock } = orderData.data;
 
       // Helper function to call server-side verification
-      const verifyPaymentServer = async (paymentId: string, signature: string) => {
+      const verifyPaymentServer = async (paymentId: string, signature = 'cf_verified') => {
         const verifyRes = await fetch('/api/payments/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             payment_db_id,
+            order_id,
+            cf_order_id,
             razorpay_order_id: order_id,
+            cf_payment_id: paymentId,
             razorpay_payment_id: paymentId,
             razorpay_signature: signature,
             type: 'event_fee',
@@ -274,15 +276,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
         }
       };
 
-      const scriptLoaded = await loadRazorpayCheckoutScript();
-
-      if (is_mock || !scriptLoaded || typeof window === 'undefined' || !(window as any).Razorpay) {
-        if (!is_mock && !scriptLoaded) {
-          setCheckoutError('Payment gateway could not be loaded. Please check your internet connection.');
-          setProcessingPayment(false);
-          return;
-        }
-        // Open Mock Razorpay Test Checkout Modal in development mode
+      if (payment_session_id && !is_mock) {
+        const { launchCashfreeCheckout } = await import('@/lib/cashfreeCheckout');
+        await launchCashfreeCheckout({
+          paymentSessionId: payment_session_id,
+          orderId: order_id,
+          paymentDbId: payment_db_id,
+          onSuccess: async (details: any) => {
+            const payId = details?.paymentDetails?.cf_payment_id || `cfpay_${Date.now()}`;
+            await verifyPaymentServer(payId, 'cf_success');
+          },
+          onFailure: (errMsg: string) => {
+            setProcessingPayment(false);
+            setCheckoutError(errMsg || 'Payment failed. Please try again.');
+          },
+          onDismiss: () => {
+            setProcessingPayment(false);
+            setCheckoutError('Checkout was closed. Your 15-minute capacity hold remains active.');
+          },
+        });
+      } else {
+        // Mock / fallback checkout modal in development mode
         setMockOrderData({
           order_id,
           amount,
@@ -290,36 +304,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
           payment_db_id,
         });
         setMockModalOpen(true);
-      } else {
-        // Real Razorpay Checkout Modal
-        const options = {
-          key: key_id,
-          amount: amount,
-          currency: 'INR',
-          name: 'Parinaam 2026',
-          description: `Registration for ${events.length} Event(s)`,
-          order_id: order_id,
-          handler: function (response: any) {
-            verifyPaymentServer(response.razorpay_payment_id, response.razorpay_signature);
-          },
-          modal: {
-            ondismiss: function () {
-              setProcessingPayment(false);
-              setCheckoutError('Checkout was closed. Your 15-minute capacity hold remains active.');
-            },
-          },
-          prefill: {
-            name: user.full_name,
-            email: user.email,
-          },
-          theme: { color: '#8b5cf6' },
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (response: any) {
-          setProcessingPayment(false);
-          setCheckoutError(response.error?.description || 'Payment failed. Please try again.');
-        });
-        rzp.open();
       }
     } catch (err: any) {
       console.error('Checkout error:', err);
@@ -587,9 +571,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
         </div>
       </div>
 
-      {/* Development Mock Razorpay Test Checkout Modal */}
+      {/* Development Mock Cashfree Test Checkout Modal */}
       {mockOrderData && (
-        <MockRazorpayModal
+        <MockPaymentModal
           isOpen={mockModalOpen}
           onClose={() => {
             setMockModalOpen(false);

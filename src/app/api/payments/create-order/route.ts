@@ -22,27 +22,6 @@ class UserError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Razorpay helpers
-// ---------------------------------------------------------------------------
-
-/**
- * True when real Razorpay credentials are configured and MOCK_RAZORPAY is not explicitly set.
- * Evaluated at call time (not module level) so env changes in tests are respected.
- */
-function isRealRazorpay(): boolean {
-  return (
-    !!process.env.RAZORPAY_KEY_ID &&
-    !!process.env.RAZORPAY_KEY_SECRET &&
-    process.env.MOCK_RAZORPAY !== 'true'
-  );
-}
-
-/** True when MOCK_RAZORPAY=true is explicitly set (development without Razorpay keys). */
-function isMockRazorpay(): boolean {
-  return process.env.MOCK_RAZORPAY === 'true';
-}
-
-// ---------------------------------------------------------------------------
 // POST /api/payments/create-order
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
@@ -89,56 +68,41 @@ export async function POST(req: NextRequest) {
         return error('Platform fee already paid', 409);
       }
 
-      const rzpKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_Tj1xekDdSGlLZx';
-      const rzpSecret = process.env.RAZORPAY_KEY_SECRET || 'iG7V5PISj2ERvhLFGAD3Wass';
-      let rzpOrderId: string;
+      const { createCashfreeOrder } = await import('@/lib/cashfree');
+      const cleanOrderId = `cf_pf_${Date.now()}_${session.userId.slice(0, 6)}`;
+      let cfOrder: any;
 
       try {
-        const authHeader = Buffer.from(`${rzpKeyId}:${rzpSecret}`).toString('base64');
-        const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${authHeader}`,
-            'Content-Type': 'application/json',
+        cfOrder = await createCashfreeOrder({
+          order_id: cleanOrderId,
+          order_amount: 1000,
+          customer_details: {
+            customer_id: session.userId,
+            customer_name: userRow.full_name || 'Participant',
+            customer_email: session.email,
+            customer_phone: userRow.phone || '9999999999',
           },
-          body: JSON.stringify({
-            amount,
-            currency: 'INR',
-            receipt: `pf_${Date.now().toString().slice(-8)}`,
-            notes: {
-              userId: session.userId,
-              userEmail: session.email,
-              type: 'platform_fee',
-              passName: 'Parinaam 2026 Official Festival Pass',
-            },
-          }),
+          order_note: 'Parinaam 2026 Official Festival Pass (₹1000)',
         });
-
-        if (rzpRes.ok) {
-          const rzpData = await rzpRes.json();
-          rzpOrderId = rzpData.id;
-        } else {
-          const errText = await rzpRes.text();
-          console.error('[Razorpay Platform Fee Error]', rzpRes.status, errText);
-          return error('Could not create Razorpay order. Please try again.', 502);
-        }
-      } catch (err: any) {
-        console.error('[Razorpay Platform Fee Network Error]', err);
-        return error('Payment gateway is unreachable. Please try again.', 502);
+      } catch (cfErr: any) {
+        console.error('[Cashfree Platform Fee Error]', cfErr.message);
+        return error(`Payment gateway initialization failed: ${cfErr.message}`, 502);
       }
 
       const paymentResult = await db.query(
-        `INSERT INTO payments (user_id, type, amount, razorpay_order_id, status)
-         VALUES ($1, 'platform_fee', $2, $3, 'created') RETURNING id`,
-        [session.userId, amount, rzpOrderId],
+        `INSERT INTO payments (user_id, type, amount, cf_order_id, payment_session_id, razorpay_order_id, status)
+         VALUES ($1, 'platform_fee', $2, $3, $4, $3, 'created') RETURNING id`,
+        [session.userId, amount, cfOrder.order_id, cfOrder.payment_session_id],
       );
       return success({
-        order_id: rzpOrderId,
+        order_id: cfOrder.order_id,
+        cf_order_id: cfOrder.cf_order_id,
+        payment_session_id: cfOrder.payment_session_id,
         amount,
+        amount_in_rupees: 1000,
         currency: 'INR',
         description: 'Parinaam 2026 Official Festival Pass (₹1000 Fixed Entry)',
         payment_db_id: paymentResult.rows[0].id,
-        key_id: rzpKeyId,
       });
     }
 
@@ -424,72 +388,31 @@ export async function POST(req: NextRequest) {
     const { paymentDbId, totalAmountPaise, targetEventsCount } = txResult;
 
     // =========================================================================
-    // PHASE B — Razorpay Order Creation (OUTSIDE the DB transaction)
+    // PHASE B — Cashfree Order Creation (OUTSIDE the DB transaction)
     //
     // PostgreSQL locks have already been released by COMMIT above.
     // Failure here marks the payment as 'failed' and cancels the PENDING
     // registrations so the student can retry.
     // =========================================================================
-    let rzpOrderId: string;
+    const { createCashfreeOrder } = await import('@/lib/cashfree');
+    const totalAmountRupees = totalAmountPaise / 100;
+    const cleanOrderId = `cf_evt_${Date.now()}_${session.userId.slice(0, 6)}`;
+    let cfOrder: any;
 
-    if (isRealRazorpay()) {
-      // ── Real Razorpay API call ─────────────────────────────────────────────
-      try {
-        const rzpKeyId = process.env.RAZORPAY_KEY_ID;
-        const rzpSecret = process.env.RAZORPAY_KEY_SECRET;
-        const authHeader = Buffer.from(
-          `${rzpKeyId}:${rzpSecret}`,
-        ).toString('base64');
-
-        const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${authHeader}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            amount: totalAmountPaise,
-            currency: 'INR',
-            receipt: paymentDbId,
-          }),
-        });
-
-        if (!rzpRes.ok) {
-          const body = await rzpRes.text();
-          console.error('[Razorpay] Order creation failed:', rzpRes.status, body.slice(0, 200));
-          await db.query(
-            `UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1`,
-            [paymentDbId],
-          );
-          await db.query(
-            `UPDATE registrations SET status = 'CANCELLED' WHERE payment_id = $1`,
-            [paymentDbId],
-          );
-          return error('Payment gateway order creation failed. Please try again.', 502);
-        }
-
-        const rzpOrder = await rzpRes.json();
-        rzpOrderId = rzpOrder.id as string;
-      } catch (rzpErr) {
-        console.error(
-          '[Razorpay] Network error during order creation:',
-          (rzpErr as Error).message,
-        );
-        await db.query(
-          `UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1`,
-          [paymentDbId],
-        );
-        await db.query(
-          `UPDATE registrations SET status = 'CANCELLED' WHERE payment_id = $1`,
-          [paymentDbId],
-        );
-        return error('Payment gateway is unreachable. Please try again.', 502);
-      }
-    } else if (isMockRazorpay()) {
-      // ── Explicit development mock mode (MOCK_RAZORPAY=true) ───────────────
-      rzpOrderId = `order_mock_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-    } else {
-      // ── Razorpay not configured — surface the misconfiguration ────────────
+    try {
+      cfOrder = await createCashfreeOrder({
+        order_id: cleanOrderId,
+        order_amount: totalAmountRupees,
+        customer_details: {
+          customer_id: session.userId,
+          customer_name: user.full_name || 'Participant',
+          customer_email: user.email,
+          customer_phone: user.phone || '9999999999',
+        },
+        order_note: `Registration for ${targetEventsCount} Event(s)`,
+      });
+    } catch (cfErr: any) {
+      console.error('[Cashfree] Order creation error:', cfErr.message);
       await db.query(
         `UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1`,
         [paymentDbId],
@@ -498,26 +421,26 @@ export async function POST(req: NextRequest) {
         `UPDATE registrations SET status = 'CANCELLED' WHERE payment_id = $1`,
         [paymentDbId],
       );
-      return error(
-        'Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET, ' +
-          'or set MOCK_RAZORPAY=true for local development.',
-        503,
-      );
+      return error(`Payment gateway initialization failed: ${cfErr.message}`, 502);
     }
 
-    // Persist the Razorpay order ID on the payment record.
+    // Persist Cashfree order ID & payment_session_id on the payment record
     await db.query(
-      `UPDATE payments SET razorpay_order_id = $1, updated_at = NOW() WHERE id = $2`,
-      [rzpOrderId, paymentDbId],
+      `UPDATE payments 
+       SET cf_order_id = $1, payment_session_id = $2, razorpay_order_id = $1, updated_at = NOW() 
+       WHERE id = $3`,
+      [cfOrder.order_id, cfOrder.payment_session_id, paymentDbId],
     );
 
     return success({
-      order_id: rzpOrderId,
+      order_id: cfOrder.order_id,
+      cf_order_id: cfOrder.cf_order_id,
+      payment_session_id: cfOrder.payment_session_id,
       amount: totalAmountPaise,
+      amount_in_rupees: totalAmountRupees,
       currency: 'INR',
       description: `Registration for ${targetEventsCount} Event(s)`,
       payment_db_id: paymentDbId,
-      key_id: process.env.RAZORPAY_KEY_ID ?? '',
     });
   } catch (err) {
     // Ensure the client is always released on unexpected errors.

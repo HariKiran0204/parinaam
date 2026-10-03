@@ -76,8 +76,10 @@ export interface StudentRegistrationRecord {
 
 export interface StudentPaymentRecord {
   payment_id: string;
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
+  cf_order_id?: string;
+  cf_payment_id?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
   amount: number;
   currency: string;
   status: string;
@@ -1098,13 +1100,13 @@ export default function AdminUsersPage() {
                       {fullDetail?.payments && fullDetail.payments.length > 0 && (
                         <div>
                           <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <CreditCard size={14} /> Razorpay Payments Audit ({fullDetail.payments.length})
+                            <CreditCard size={14} /> Cashfree Payments Audit ({fullDetail.payments.length})
                           </h4>
                           <div className="space-y-2">
                             {fullDetail.payments.map(p => (
                               <div key={p.payment_id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 flex items-center justify-between text-xs">
                                 <div>
-                                  <p className="font-mono text-white font-semibold">{p.razorpay_payment_id || p.razorpay_order_id || 'Direct Payment'}</p>
+                                  <p className="font-mono text-white font-semibold">{p.cf_payment_id || p.cf_order_id || p.razorpay_payment_id || p.razorpay_order_id || 'Direct Payment'}</p>
                                   <p className="text-[10px] text-slate-500 font-mono mt-0.5">{formatDateTimeIST(p.created_at)}</p>
                                 </div>
                                 <div className="text-right">

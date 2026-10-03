@@ -622,7 +622,7 @@ export default function SponsorRegistrationPage() {
                         </span>
                         <div className="flex items-center gap-2 text-[10px] font-mono text-slate-300">
                           <span className="px-2 py-0.5 bg-purple-950/60 border border-purple-900/50 rounded">UPI</span>
-                          <span className="px-2 py-0.5 bg-purple-950/60 border border-purple-900/50 rounded">Razorpay</span>
+                          <span className="px-2 py-0.5 bg-purple-950/60 border border-purple-900/50 rounded">Cashfree</span>
                           <span className="px-2 py-0.5 bg-purple-950/60 border border-purple-900/50 rounded">NEFT / RTGS</span>
                         </div>
                       </div>

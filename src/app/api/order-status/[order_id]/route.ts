@@ -1,11 +1,11 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getRazorpayOrderPayments, RazorpayError } from '@/lib/razorpay';
+import { getCashfreeOrderPayments, CashfreeError } from '@/lib/cashfree';
 
 /**
  * GET /api/order-status/:order_id
- * Fallback route: Queries the Razorpay API for payments associated with an order.
+ * Queries the Cashfree API for payments associated with an order.
  * Useful when client connectivity dropped or browser closed before checkout handler completed.
  */
 export async function GET(
@@ -22,16 +22,16 @@ export async function GET(
       );
     }
 
-    const payments = await getRazorpayOrderPayments(order_id);
+    const payments = await getCashfreeOrderPayments(order_id);
 
     return NextResponse.json({
       success: true,
       order_id,
-      count: payments.count,
-      items: payments.items,
+      count: Array.isArray(payments) ? payments.length : 0,
+      items: payments,
     });
   } catch (err: any) {
-    if (err instanceof RazorpayError) {
+    if (err instanceof CashfreeError) {
       return NextResponse.json(
         { success: false, error: err.message, code: err.code },
         { status: err.statusCode }
@@ -45,3 +45,4 @@ export async function GET(
     );
   }
 }
+

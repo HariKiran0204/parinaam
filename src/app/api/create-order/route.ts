@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
-import { createRazorpayOrder, RazorpayError } from '@/lib/razorpay';
+import { CashfreeError } from '@/lib/cashfree';
 import { calculatePayableFees } from '@/lib/institutionPolicy';
 
 interface CreateOrderRequestBody {
@@ -192,45 +192,59 @@ export async function POST(req: NextRequest) {
     // Validate currency
     const currency = (body.currency || 'INR').trim().toUpperCase();
 
-    // Create Razorpay Order via Orders API
-    const orderResult = await createRazorpayOrder({
-      amount: computedAmountPaise,
-      currency,
-      receipt: internalReceipt,
-      notes: internalNotes,
+    // Create Cashfree Order
+    const { createCashfreeOrder } = await import('@/lib/cashfree');
+    const orderRupees = computedAmountPaise / 100;
+    const cleanOrderId = `cf_ord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+    const userRes = userId ? await db.query(`SELECT full_name, email, phone FROM users WHERE id = $1`, [userId]) : { rows: [] };
+    const uInfo = userRes.rows[0] || {};
+
+    const cfOrder = await createCashfreeOrder({
+      order_id: cleanOrderId,
+      order_amount: orderRupees,
+      order_currency: currency,
+      customer_details: {
+        customer_id: userId || `guest_${Date.now()}`,
+        customer_name: uInfo.full_name || 'Fest Participant',
+        customer_email: uInfo.email || 'participant@parinaam.fest',
+        customer_phone: uInfo.phone || '9999999999',
+      },
+      order_note: `Parinaam Order ${internalReceipt}`,
     });
 
-    // Persist order_XXXX against internal order record in database if present
+    // Persist order details against internal order record in database if present
     if (internalPaymentId) {
       await db.query(
-        `UPDATE payments SET razorpay_order_id = $1, updated_at = NOW() WHERE id = $2`,
-        [orderResult.order_id, internalPaymentId]
+        `UPDATE payments SET cf_order_id = $1, payment_session_id = $2, razorpay_order_id = $1, updated_at = NOW() WHERE id = $3`,
+        [cfOrder.order_id, cfOrder.payment_session_id, internalPaymentId]
       );
     } else {
-      // Create a payment record to persist the razorpay order id for idempotency
+      // Create a payment record to persist the order id for idempotency
       try {
         await db.query(
-          `INSERT INTO payments (user_id, type, amount, razorpay_order_id, status)
-           VALUES ($1, 'standard_order', $2, $3, 'created')`,
-          [userId || null, computedAmountPaise, orderResult.order_id]
+          `INSERT INTO payments (user_id, type, amount, cf_order_id, payment_session_id, razorpay_order_id, status)
+           VALUES ($1, 'standard_order', $2, $3, $4, $3, 'created')`,
+          [userId || null, computedAmountPaise, cfOrder.order_id, cfOrder.payment_session_id]
         );
       } catch (dbErr) {
-        // Log non-fatal DB persistence warning for unauthenticated/test payments
         console.warn('[Payments] Could not persist test payment record:', (dbErr as Error).message);
       }
     }
 
-    // Return order details to browser including key_id so frontend stays rotatable
+    // Return order details to browser
     return NextResponse.json({
       success: true,
-      order_id: orderResult.order_id,
-      amount: orderResult.amount,
-      currency: orderResult.currency,
-      key_id: orderResult.key_id,
+      order_id: cfOrder.order_id,
+      cf_order_id: cfOrder.cf_order_id,
+      payment_session_id: cfOrder.payment_session_id,
+      amount: computedAmountPaise,
+      amount_in_rupees: orderRupees,
+      currency: cfOrder.order_currency,
       payment_db_id: internalPaymentId,
     });
   } catch (err: any) {
-    if (err instanceof RazorpayError) {
+    if (err instanceof CashfreeError) {
       return NextResponse.json(
         { success: false, error: err.message, code: err.code },
         { status: err.statusCode }

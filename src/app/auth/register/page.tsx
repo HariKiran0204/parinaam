@@ -49,7 +49,7 @@ const INCLUDED_FLAGSHIP_EVENTS = [
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Cashfree: any;
   }
 }
 
@@ -75,7 +75,7 @@ export default function RegisterPage() {
   } | null>(null);
 
   const [registeredUserSession, setRegisteredUserSession] = useState<any>(null);
-  const [pendingRazorpayOrder, setPendingRazorpayOrder] = useState<any>(null);
+  const [pendingPaymentOrder, setPendingPaymentOrder] = useState<any>(null);
 
   const [form, setForm] = useState<RegisterData & { confirmPassword: string }>({
     student_type: 'other',
@@ -114,14 +114,14 @@ export default function RegisterPage() {
     }
   }, [user, router, paymentSuccessData, registeredUserSession]);
 
-  // Load Razorpay checkout script on mount safely
+  // Load Cashfree checkout SDK script on mount safely
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      if (!document.getElementById('razorpay-checkout-script') && !window.Razorpay) {
+      if (!document.getElementById('cashfree-checkout-script') && !window.Cashfree) {
         try {
           const script = document.createElement('script');
-          script.id = 'razorpay-checkout-script';
-          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.id = 'cashfree-checkout-script';
+          script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
           script.async = true;
           document.body.appendChild(script);
         } catch {
@@ -263,7 +263,7 @@ export default function RegisterPage() {
 
       if (json.success && json.data) {
         setRegisteredUserSession(json.data.user);
-        setPendingRazorpayOrder(json.data.razorpay_order);
+        setPendingPaymentOrder(json.data.cashfree_order);
 
         // If Amrita student (free pass), complete immediately!
         if (isAmritaSelected) {
@@ -286,13 +286,13 @@ export default function RegisterPage() {
     setStep(s => s + 1);
   };
 
-  // Launch Razorpay for ₹1000 Outside Student Pass
-  const handleRazorpayPayment = async () => {
+  // Launch Cashfree for ₹1000 Outside Student Pass
+  const handleCashfreePayment = async () => {
     setError('');
     setPaymentProcessing(true);
 
-    let rzpOrder = pendingRazorpayOrder;
-    if (!rzpOrder || !rzpOrder.order_id || !rzpOrder.order_id.startsWith('order_')) {
+    let cfOrder = pendingPaymentOrder;
+    if (!cfOrder || !cfOrder.payment_session_id) {
       try {
         const orderRes = await fetch('/api/payments/create-order', {
           method: 'POST',
@@ -300,9 +300,12 @@ export default function RegisterPage() {
           body: JSON.stringify({ type: 'platform_fee' }),
         });
         const orderJson = await orderRes.json();
-        if (orderJson.success && orderJson.data && orderJson.data.order_id) {
-          rzpOrder = orderJson.data;
-          setPendingRazorpayOrder(rzpOrder);
+        if (orderJson.success && orderJson.data && orderJson.data.payment_session_id) {
+          cfOrder = {
+            ...orderJson.data,
+            registration_token: pendingPaymentOrder?.registration_token,
+          };
+          setPendingPaymentOrder(cfOrder);
         } else {
           setError(orderJson.error || 'Failed to create payment order. Please try again.');
           setPaymentProcessing(false);
@@ -315,79 +318,56 @@ export default function RegisterPage() {
       }
     }
 
-    const rzpKey = rzpOrder?.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_Tj1xekDdSGlLZx';
-
-    if (typeof window.Razorpay === 'undefined') {
-      setError('Payment gateway is loading. Please try again in a few seconds.');
-      setPaymentProcessing(false);
-      return;
-    }
-
-    const options = {
-      key: rzpKey,
-      amount: rzpOrder?.amount || 100000, // 100000 paise = ₹1000
-      currency: 'INR',
-      name: 'PARINAAM 2026',
-      description: 'Official Festival Pass (Includes 4 Flagship Events)',
-      order_id: rzpOrder?.order_id,
-      prefill: {
-        name: form.full_name || registeredUserSession?.full_name || '',
-        email: form.email || registeredUserSession?.email || '',
-        contact: form.phone || registeredUserSession?.phone || '',
-      },
-      theme: {
-        color: '#9333ea',
-      },
-      handler: async function (response: any) {
-        try {
-          const verifyRes = await fetch('/api/payments/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              payment_db_id: rzpOrder?.payment_db_id,
-              razorpay_order_id: response.razorpay_order_id || rzpOrder?.order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              registration_token: rzpOrder?.registration_token,
-              type: 'platform_fee',
-            }),
-          });
-
-          const verifyData = await verifyRes.json();
-          setPaymentProcessing(false);
-
-          if (verifyData.success) {
-            setPaymentSuccessData({
-              qrToken: verifyData.data?.qr_token || registeredUserSession?.qr_token || registeredUserSession?.id,
-              studentName: form.full_name || registeredUserSession?.full_name || 'Student',
-              amount: 1000,
+    try {
+      const { launchCashfreeCheckout } = await import('@/lib/cashfreeCheckout');
+      await launchCashfreeCheckout({
+        paymentSessionId: cfOrder.payment_session_id,
+        orderId: cfOrder.order_id,
+        paymentDbId: cfOrder.payment_db_id,
+        onSuccess: async (details: any) => {
+          try {
+            const verifyRes = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                payment_db_id: cfOrder?.payment_db_id,
+                order_id: cfOrder?.order_id,
+                cf_order_id: cfOrder?.cf_order_id || cfOrder?.order_id,
+                cf_payment_id: details?.paymentDetails?.cf_payment_id || `cfpay_${Date.now()}`,
+                registration_token: cfOrder?.registration_token,
+                type: 'platform_fee',
+              }),
             });
-            refreshUser();
-          } else {
-            setError(verifyData.error || 'Payment verification failed. Please contact support.');
+
+            const verifyData = await verifyRes.json();
+            setPaymentProcessing(false);
+
+            if (verifyData.success) {
+              setPaymentSuccessData({
+                qrToken: verifyData.data?.qr_token || registeredUserSession?.qr_token || registeredUserSession?.id,
+                studentName: form.full_name || registeredUserSession?.full_name || 'Student',
+                amount: 1000,
+              });
+              refreshUser();
+            } else {
+              setError(verifyData.error || 'Payment verification failed. Please contact support.');
+            }
+          } catch {
+            setPaymentProcessing(false);
+            setError('Network error verifying payment. Please refresh your dashboard.');
           }
-        } catch {
+        },
+        onFailure: (errMsg: string) => {
           setPaymentProcessing(false);
-          setError('Network error verifying payment. Please refresh your dashboard.');
-        }
-      },
-      modal: {
-        ondismiss: function () {
+          setError(errMsg || 'Payment failed. Please try again.');
+        },
+        onDismiss: () => {
           setPaymentProcessing(false);
         },
-      },
-    };
-
-    try {
-      const razorpayInstance = new window.Razorpay(options);
-      razorpayInstance.on('payment.failed', function (resp: any) {
-        setPaymentProcessing(false);
-        setError(`Payment failed: ${resp?.error?.description || 'Transaction declined'}`);
       });
-      razorpayInstance.open();
     } catch (err: any) {
       setPaymentProcessing(false);
-      setError('Could not open payment window. Please try again.');
+      setError('Could not open Cashfree payment window. Please try again.');
     }
   };
 
@@ -907,7 +887,7 @@ export default function RegisterPage() {
               </motion.div>
             )}
 
-            {/* STEP 2: Pass Confirmation & Razorpay Payment */}
+            {/* STEP 2: Pass Confirmation & Cashfree Payment */}
             {step === 2 && (
               <motion.div
                 key="step2"
@@ -974,14 +954,14 @@ export default function RegisterPage() {
 
                       <button
                         type="button"
-                        onClick={handleRazorpayPayment}
+                        onClick={handleCashfreePayment}
                         disabled={paymentProcessing}
                         className="w-2/3 bg-gradient-to-r from-emerald-600 via-purple-600 to-pink-600 hover:from-emerald-500 hover:to-pink-500 text-white font-extrabold py-3.5 rounded-xl transition-all shadow-xl shadow-purple-900/40 flex items-center justify-center gap-2 text-sm disabled:opacity-50 active:scale-95"
                       >
                         {paymentProcessing ? (
                           <>
                             <Loader2 size={16} className="animate-spin" />
-                            <span>Processing Razorpay...</span>
+                            <span>Processing Cashfree...</span>
                           </>
                         ) : (
                           <>

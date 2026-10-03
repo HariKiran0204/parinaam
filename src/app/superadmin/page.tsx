@@ -1550,13 +1550,13 @@ export default function SuperAdminDashboard() {
                       {inspectingData?.payments && inspectingData.payments.length > 0 && (
                         <div>
                           <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <CreditCard size={14} /> Razorpay Payments Audit ({inspectingData.payments.length})
+                            <CreditCard size={14} /> Cashfree Payments Audit ({inspectingData.payments.length})
                           </h4>
                           <div className="space-y-2">
                             {inspectingData.payments.map((p: any) => (
                               <div key={p.payment_id} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 flex items-center justify-between text-xs">
                                 <div>
-                                  <p className="font-mono text-white font-semibold">{p.razorpay_payment_id || p.razorpay_order_id || 'Direct Payment'}</p>
+                                  <p className="font-mono text-white font-semibold">{p.cf_payment_id || p.cf_order_id || p.razorpay_payment_id || p.razorpay_order_id || 'Direct Payment'}</p>
                                   <p className="text-[10px] text-slate-500 font-mono mt-0.5">{formatDateTimeIST(p.created_at)}</p>
                                 </div>
                                 <div className="text-right">

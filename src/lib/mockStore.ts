@@ -811,10 +811,18 @@ class MockDbEngine {
     // 20. SELECT FROM PAYMENTS
     if (qLower.includes('from payments')) {
       let result = [...this.payments];
-      if (qLower.includes('razorpay_order_id =')) {
-        result = result.filter(p => p.razorpay_order_id === params[0] || p.razorpay_order_id === params[1]);
+      if (qLower.includes('cf_order_id =') || qLower.includes('razorpay_order_id =')) {
+        result = result.filter(
+          p =>
+            p.cf_order_id === params[0] ||
+            p.cf_order_id === params[1] ||
+            p.razorpay_order_id === params[0] ||
+            p.razorpay_order_id === params[1] ||
+            p.id === params[0] ||
+            p.id === params[1]
+        );
       } else if (qLower.includes('id =')) {
-        result = result.filter(p => p.id === params[0]);
+        result = result.filter(p => p.id === params[0] || p.cf_order_id === params[0] || p.razorpay_order_id === params[0]);
       } else if (qLower.includes('user_id =')) {
         result = result.filter(p => p.user_id === params[0]);
       }
@@ -823,11 +831,11 @@ class MockDbEngine {
 
     // 21. UPDATE REGISTRATIONS
     if (qLower.startsWith('update registrations')) {
-      const paymentId = params.find(p => typeof p === 'string' && (p.startsWith('pay-') || p.startsWith('order_')));
+      const paymentId = params.find(p => typeof p === 'string' && (p.startsWith('pay-') || p.startsWith('order_') || p.startsWith('cf_')));
       const userId = params.find(p => typeof p === 'string' && (p.startsWith('usr-') || p.startsWith('part-')));
       let updatedCount = 0;
       this.registrations.forEach(r => {
-        if ((paymentId && r.payment_id === paymentId) || (userId && r.user_id === userId)) {
+        if ((paymentId && (r.payment_id === paymentId || r.payment_order_id === paymentId)) || (userId && r.user_id === userId)) {
           if (qLower.includes("status = 'confirmed'") || qLower.includes("status = 'CONFIRMED'")) {
             r.status = 'CONFIRMED';
             r.payment_status = 'paid';
@@ -845,12 +853,13 @@ class MockDbEngine {
     // 22. UPDATE PAYMENTS
     if (qLower.startsWith('update payments')) {
       const payId = params[params.length - 1] || params[0];
-      const payment = this.payments.find(p => p.id === payId || p.razorpay_order_id === payId);
+      const payment = this.payments.find(p => p.id === payId || p.cf_order_id === payId || p.razorpay_order_id === payId);
       if (payment) {
         if (qLower.includes("status = 'paid'")) payment.status = 'paid';
         if (qLower.includes("status = 'failed'")) payment.status = 'failed';
         if (qLower.includes("status = 'refunded'")) payment.status = 'refunded';
-        if (params[0] && typeof params[0] === 'string' && params[0].startsWith('pay_')) {
+        if (params[0] && typeof params[0] === 'string' && (params[0].startsWith('pay_') || params[0].startsWith('cfpay_'))) {
+          payment.cf_payment_id = params[0];
           payment.razorpay_payment_id = params[0];
         }
         return { rows: [payment], rowCount: 1 };

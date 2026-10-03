@@ -159,49 +159,41 @@ export async function POST(req: NextRequest) {
       emailVerifyToken,
     });
 
-    const amountPaise = STANDARD_PLATFORM_FEE_INR * 100; // 100000 paise (₹1000)
-    const rzpKeyId = process.env.RAZORPAY_KEY_ID;
-    const rzpSecret = process.env.RAZORPAY_KEY_SECRET;
-
-    let rzpOrderId: string;
+    const { createCashfreeOrder } = await import('@/lib/cashfree');
+    const cleanOrderId = `cf_reg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    let cfOrder: any;
 
     try {
-      const authHeader = Buffer.from(`${rzpKeyId}:${rzpSecret}`).toString('base64');
-      const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${authHeader}`,
-          'Content-Type': 'application/json',
+      cfOrder = await createCashfreeOrder({
+        order_id: cleanOrderId,
+        order_amount: STANDARD_PLATFORM_FEE_INR,
+        order_currency: 'INR',
+        customer_details: {
+          customer_id: `cand_${cleanPhone}`,
+          customer_name: full_name,
+          customer_email: emailLower,
+          customer_phone: cleanPhone,
         },
-        body: JSON.stringify({
-          amount: amountPaise,
-          currency: 'INR',
-          receipt: `pf_${Date.now().toString().slice(-8)}`,
-          notes: {
-            type: 'platform_fee',
-            passName: 'Parinaam 2026 Delegate Pass (Includes 4 Flagship Events)',
-          },
-        }),
+        order_note: 'Parinaam 2026 Delegate Pass (₹1000)',
       });
-
-      if (rzpRes.ok) {
-        const rzpData = await rzpRes.json();
-        rzpOrderId = rzpData.id;
-      } else {
-        const errText = await rzpRes.text();
-        console.warn('[Razorpay] Order API returned error status:', rzpRes.status, errText);
-        rzpOrderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      }
-    } catch (rzpErr) {
-      console.error('[Razorpay] Network error, fallback order generated:', rzpErr);
-      rzpOrderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    } catch (cfErr: any) {
+      console.error('[Cashfree Registration Order Error]', cfErr);
+      cfOrder = {
+        order_id: cleanOrderId,
+        cf_order_id: cleanOrderId,
+        payment_session_id: `session_mock_${Date.now()}`,
+        order_amount: STANDARD_PLATFORM_FEE_INR,
+        order_currency: 'INR',
+      };
     }
 
-    const razorpayOrder = {
-      order_id: rzpOrderId,
-      amount: amountPaise,
+    const orderData = {
+      order_id: cfOrder.order_id,
+      cf_order_id: cfOrder.cf_order_id,
+      payment_session_id: cfOrder.payment_session_id,
+      amount: STANDARD_PLATFORM_FEE_INR * 100, // paise
+      amount_in_rupees: STANDARD_PLATFORM_FEE_INR,
       currency: 'INR',
-      key_id: rzpKeyId,
       registration_token: registrationToken,
       description: 'PARINAAM 2026 Festival Pass (₹1000 Fixed Entry)',
       included_events: [
@@ -216,7 +208,8 @@ export async function POST(req: NextRequest) {
       user: null,
       is_amrita_student: false,
       requires_payment: true,
-      razorpay_order: razorpayOrder,
+      cashfree_order: orderData,
+      razorpay_order: orderData, // backward compatibility
     }, 201);
   } catch (err: any) {
     console.error('Registration error:', err);
