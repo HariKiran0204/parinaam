@@ -114,8 +114,21 @@ export async function POST(req: NextRequest) {
 
           if (existingUserRes.rows.length > 0) {
             targetUser = existingUserRes.rows[0];
-          } else {
-            // Create outside user row ONLY NOW AFTER successful server-side Razorpay signature verification
+            await client.query(
+              `UPDATE users
+               SET platform_fee_paid = TRUE,
+                   verification_status = 'verified',
+                   pass_type = 'DELEGATE_PASS_1000',
+                   platform_payment_id = $1,
+                   platform_fee_paid_at = NOW()
+               WHERE id = $2`,
+              [payId, targetUser.id]
+            );
+            targetUser.platform_fee_paid = true;
+            targetUser.verification_status = 'verified';
+            targetUser.pass_type = 'DELEGATE_PASS_1000';
+          } else if (regPayload) {
+            // Create outside user row if not yet inserted
             const qrToken = regPayload.qr_token || (uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '').slice(0, 8));
             const userInsertRes = await client.query(
               `INSERT INTO users (
