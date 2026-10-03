@@ -43,6 +43,8 @@ export interface FestEvent {
   registrationUrl?: string;
   isPopular?: boolean;
   registrationOpen: boolean;
+  clubName?: string;
+  clubColor?: string;
 }
 
 export interface Participant {

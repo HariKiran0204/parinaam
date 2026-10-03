@@ -87,7 +87,6 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
           className="relative z-10 w-full h-full object-contain p-1 group-hover:scale-[1.02] transition-transform duration-300 drop-shadow-2xl"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b0716] via-transparent to-transparent pointer-events-none z-10" />
-
         {/* Prize Pool Tag */}
         <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 bg-black/90 backdrop-blur-md text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-lg">
           <Trophy className="w-3.5 h-3.5 text-amber-400" />
@@ -98,14 +97,14 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
         {!isAdmin && !registered && !hasUnstop && (
           <button
             onClick={handleInterestedClick}
-            className={`absolute bottom-3 right-3 z-20 p-2 rounded-xl transition-all border shadow-lg ${
+            className={`absolute bottom-3.5 right-3.5 z-20 p-2.5 rounded-xl transition-all border shadow-lg ${
               inCart && isStudent
-                ? 'bg-pink-600 text-white border-pink-500 scale-105'
+                ? 'bg-pink-600 text-white border-pink-500 scale-105 shadow-pink-900/40'
                 : 'bg-black/85 backdrop-blur-md text-slate-300 border-white/20 hover:text-pink-400 hover:border-pink-500/50'
             }`}
             title={!user ? "Sign in to add to cart" : inCart ? "In your Interested Cart" : "I'm Interested — Add to Cart"}
           >
-            <Heart size={15} className={inCart && isStudent ? 'fill-white' : ''} />
+            <Heart size={16} className={inCart && isStudent ? 'fill-white' : ''} />
           </button>
         )}
       </div>

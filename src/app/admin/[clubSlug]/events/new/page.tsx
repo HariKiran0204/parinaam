@@ -258,16 +258,9 @@ export default function CreateClubEventPage({
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => handleSave(false)}
-              disabled={saving}
-              className="flex items-center gap-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all disabled:opacity-50"
-            >
-              <Save size={14} /> Save Draft
-            </button>
-            <button
               onClick={() => handleSave(true)}
               disabled={saving}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg disabled:opacity-50"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-lg disabled:opacity-50"
             >
               <Eye size={14} /> Publish Event
             </button>

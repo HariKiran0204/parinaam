@@ -199,6 +199,18 @@ export const GallerySection = () => {
     setModalSlideIdx(0);
   };
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!activeItem) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveItem(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeItem]);
+
   const getClusterColor = (cluster: string) => {
     switch (cluster) {
       case 'Tech & Innovation':
