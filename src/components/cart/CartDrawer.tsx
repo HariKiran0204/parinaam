@@ -315,6 +315,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
