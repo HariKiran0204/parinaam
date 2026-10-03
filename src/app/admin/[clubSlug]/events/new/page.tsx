@@ -56,6 +56,8 @@ export default function CreateClubEventPage({
     participation_type: 'individual' as 'individual' | 'team',
     min_team_size: '1', max_team_size: '1',
     team_pricing_structure: '',
+    amrita_fee: '',
+    other_fee: '',
     registration_mode: 'internal' as 'internal' | 'unstop',
     unstop_url: '',
     capacity: '', fee: '0', prize_pool: '',
@@ -220,6 +222,8 @@ export default function CreateClubEventPage({
       rounds: form.rounds.filter(r => r.name.trim()),
       coordinators: form.coordinators.filter(c => c.name.trim()),
       club_id: club.id,
+      amrita_fee: form.participation_type === 'team' && form.amrita_fee !== '' ? parseInt(form.amrita_fee) : null,
+      other_fee: form.participation_type === 'team' && form.other_fee !== '' ? parseInt(form.other_fee) : null,
     };
 
     const res = await fetch('/api/events', {
@@ -490,6 +494,43 @@ export default function CreateClubEventPage({
                               className={inp}
                             />
                           </FormField>
+                        </div>
+
+                        {/* Per-college fee tiers for team events */}
+                        <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                          <p className="text-xs font-semibold text-purple-300">📋 College-based Fee Tiers (Recommended for Chakravyuha-style events)</p>
+                          <p className="text-slate-400 text-[11px] leading-relaxed">
+                            Set separate fees for Amrita students and external college students.
+                            If filled, these override the general fee for this team event.
+                          </p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField label="🏛️ Amrita Students Fee (₹)">
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={form.amrita_fee}
+                                  onChange={e => set('amrita_fee', e.target.value)}
+                                  placeholder="e.g. 150"
+                                  className={`${inp} pl-7`}
+                                />
+                              </div>
+                            </FormField>
+                            <FormField label="🎓 Other College Students Fee (₹)">
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={form.other_fee}
+                                  onChange={e => set('other_fee', e.target.value)}
+                                  placeholder="e.g. 300"
+                                  className={`${inp} pl-7`}
+                                />
+                              </div>
+                            </FormField>
+                          </div>
                         </div>
 
                         <FormField label="Team Pricing Breakdown / Tiers">

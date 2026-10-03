@@ -84,6 +84,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       'rules', 'rounds', 'coordinators', 'poster_url', 'rulebook_url',
       'unstop_url', 'registration_url',
       'status', 'registration_open', 'is_popular', 'is_featured',
+      'amrita_fee', 'other_fee',
     ];
 
     const updates: string[] = [];

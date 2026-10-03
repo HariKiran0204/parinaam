@@ -62,10 +62,13 @@ if (pool) {
     // Log without exposing connection string or credentials
     console.error('[DB] Unexpected PostgreSQL pool error:', err.message);
   });
-  // Execute auto-migration to ensure unstop_url and registration_url exist on events
+  // Execute auto-migration to ensure required columns exist
   pool.query(`
     ALTER TABLE events ADD COLUMN IF NOT EXISTS unstop_url TEXT;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_url TEXT;
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS amrita_fee INTEGER;
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS other_fee INTEGER;
+    ALTER TABLE registrations ADD COLUMN IF NOT EXISTS team_member_user_ids JSONB DEFAULT '[]'::jsonb;
   `).catch(err => {
     console.warn('[DB] Auto-migration notice:', err.message);
   });

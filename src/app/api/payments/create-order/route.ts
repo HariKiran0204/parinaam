@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     if (!session) return unauthorized();
 
     const body = await req.json();
-    const { type, event_id, event_ids: bodyEventIds, team_names = {} } = body;
+    const { type, event_id, event_ids: bodyEventIds, team_names = {}, team_members_data = {} } = body;
 
     if (!type || !['platform_fee', 'event_fee'].includes(type)) {
       return error('Invalid payment type');
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
 
       // Lock event rows in deterministic (sorted UUID) order to prevent deadlocks.
       const eventsRes = await client.query(
-        `SELECT id, name, fee, capacity, enrolled, registration_open, status
+        `SELECT id, name, fee, amrita_fee, other_fee, capacity, enrolled, registration_open, status, max_team_size
          FROM events
          WHERE id = ANY($1)
          ORDER BY id
@@ -246,7 +246,7 @@ export async function POST(req: NextRequest) {
         [session.userId, eventIds],
       );
       if (existingRegsRes.rows.length > 0) {
-        const dup = targetEvents.find(e => e.id === existingRegsRes.rows[0].event_id);
+        const dup = targetEvents.find((e: any) => e.id === existingRegsRes.rows[0].event_id);
         throw new UserError(
           `You are already registered for "${dup?.name ?? 'an event in your cart'}".`,
           409,
@@ -276,8 +276,21 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Calculate total fee from DB values and institutional policy — client-supplied amounts are never trusted.
-      const feeCalc = calculatePayableFees(user, targetEvents);
+      // Determine if user is Amrita student for fee tier calculation
+      const { isInstitutionalEmail: checkIsAmrita } = require('@/lib/institutionPolicy');
+      const userIsAmrita = user.is_amrita_student || checkIsAmrita(user.email);
+
+      // Calculate total fee from DB values — use amrita_fee/other_fee tier if available on team event.
+      // Client-supplied amounts are never trusted.
+      const targetEventsWithFee = targetEvents.map((evt: any) => {
+        let effectiveFee = Number(evt.fee) || 0;
+        if (evt.max_team_size > 1 && evt.amrita_fee != null && evt.other_fee != null) {
+          effectiveFee = userIsAmrita ? Number(evt.amrita_fee) : Number(evt.other_fee);
+        }
+        return { id: evt.id, fee: effectiveFee };
+      });
+
+      const feeCalc = calculatePayableFees(user, targetEventsWithFee);
       const totalAmountPaise = feeCalc.totalFee * 100;
 
       // Insert one payment record in the intermediate 'created' state.
@@ -296,17 +309,49 @@ export async function POST(req: NextRequest) {
       // given the check above, but is a defensive layer).
       for (const evt of targetEvents) {
         const teamName = (team_names as Record<string, string>)[evt.id] ?? null;
+        const evtTeamData = (team_members_data as Record<string, any>)[evt.id];
+        const teamMemberUserIds = evtTeamData?.team_member_user_ids ?? [];
+        const teamMembers = evtTeamData?.team_members ?? [];
+
+        // Validate team member college constraints server-side for each team event
+        if (evt.max_team_size > 1 && teamMemberUserIds.length > 0) {
+          const { isInstitutionalEmail: checkAmrita } = require('@/lib/institutionPolicy');
+          const leaderIsAmrita = user.is_amrita_student || checkAmrita(user.email);
+
+          const memberRes = await client.query(
+            `SELECT id, is_amrita_student, email, verification_status, full_name FROM users WHERE id = ANY($1) AND role = 'student'`,
+            [teamMemberUserIds]
+          );
+
+          for (const member of memberRes.rows) {
+            if (member.verification_status !== 'verified') {
+              throw new UserError(`Team member ${member.full_name} is not verified.`, 400);
+            }
+            const { isInstitutionalEmail: chk } = require('@/lib/institutionPolicy');
+            const memberIsAmrita = member.is_amrita_student || chk(member.email);
+            if (leaderIsAmrita && !memberIsAmrita) {
+              throw new UserError(`Mixed-college teams not allowed: ${member.full_name} is from an external college but you are an Amrita student.`, 400);
+            }
+            if (!leaderIsAmrita && memberIsAmrita) {
+              throw new UserError(`Mixed-college teams not allowed: ${member.full_name} is an Amrita student but your team is from an external college.`, 400);
+            }
+          }
+        }
+
         await client.query(
           `INSERT INTO registrations
-             (user_id, event_id, team_name, amount_paid, payment_id, status, payment_status, registered_at)
-           VALUES ($1, $2, $3, 0, $4, 'PENDING', 'pending', NOW())
+             (user_id, event_id, team_name, team_members, team_member_user_ids, amount_paid, payment_id, status, payment_status, registered_at)
+           VALUES ($1, $2, $3, $4, $5, 0, $6, 'PENDING', 'pending', NOW())
            ON CONFLICT (user_id, event_id) DO UPDATE
              SET payment_id    = EXCLUDED.payment_id,
+                 team_name     = EXCLUDED.team_name,
+                 team_members  = EXCLUDED.team_members,
+                 team_member_user_ids = EXCLUDED.team_member_user_ids,
                  status        = 'PENDING',
                  payment_status = 'pending',
                  registered_at = NOW()
              WHERE registrations.status <> 'CONFIRMED'`,
-          [session.userId, evt.id, teamName, paymentDbId],
+          [session.userId, evt.id, teamName, JSON.stringify(teamMembers), JSON.stringify(teamMemberUserIds), paymentDbId],
         );
       }
 

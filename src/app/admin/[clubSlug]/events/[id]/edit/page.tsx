@@ -22,6 +22,8 @@ export default function EditEventPage() {
 		participation_type: 'individual' as 'individual' | 'team',
 		min_team_size: '1', max_team_size: '1',
 		team_pricing_structure: '',
+		amrita_fee: '',
+		other_fee: '',
 		registration_mode: 'internal' as 'internal' | 'unstop',
 		unstop_url: '',
 		fee: '0', capacity: '', prize_pool: '', eligibility: '',
@@ -48,6 +50,8 @@ export default function EditEventPage() {
 					min_team_size: String(ev.min_team_size || (isTeam ? 2 : 1)),
 					max_team_size: String(ev.max_team_size || (isTeam ? 4 : 1)),
 					team_pricing_structure: '',
+					amrita_fee: ev.amrita_fee != null ? String(ev.amrita_fee) : '',
+					other_fee: ev.other_fee != null ? String(ev.other_fee) : '',
 					registration_mode: hasUnstop ? 'unstop' : 'internal',
 					unstop_url: ev.unstop_url || ev.registration_url || '',
 					fee: String(ev.fee ?? 0),
@@ -108,6 +112,8 @@ export default function EditEventPage() {
 			max_team_size: form.participation_type === 'individual' ? 1 : (parseInt(form.max_team_size) || 4),
 			eligibility: effectiveEligibility,
 			capacity: form.capacity ? parseInt(form.capacity) : null,
+			amrita_fee: form.participation_type === 'team' && form.amrita_fee !== '' ? parseInt(form.amrita_fee) : null,
+			other_fee: form.participation_type === 'team' && form.other_fee !== '' ? parseInt(form.other_fee) : null,
 		};
 		if (publish !== undefined) {
 			payload.status = publish ? 'published' : 'draft';
@@ -253,6 +259,20 @@ export default function EditEventPage() {
 										className={inp}
 									/>
 								</F>
+								{/* Per-college fee tiers */}
+								<div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+									<p className="text-xs font-semibold text-purple-300">📋 College-based Fee Tiers</p>
+									<p className="text-slate-400 text-[11px]">Leave blank to use the general fee for all students.</p>
+									<div className="grid grid-cols-2 gap-3">
+										<F label="🏛️ Amrita Students (₹)">
+											<input type="number" min="0" value={form.amrita_fee} onChange={e => set('amrita_fee', e.target.value)} placeholder="e.g. 150" className={inp} />
+										</F>
+										<F label="🎓 Other College (₹)">
+											<input type="number" min="0" value={form.other_fee} onChange={e => set('other_fee', e.target.value)} placeholder="e.g. 300" className={inp} />
+										</F>
+									</div>
+								</div>
+
 							</div>
 						)}
 					</div>

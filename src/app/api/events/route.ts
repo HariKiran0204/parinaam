@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
           e.poster_url, e.rulebook_url, e.unstop_url, e.registration_url, e.status, 
           (CASE WHEN e.status = 'published' AND (e.registration_open IS NULL OR e.registration_open = false) THEN true ELSE e.registration_open END) as registration_open,
           e.is_popular, e.is_featured, e.created_at,
+          e.amrita_fee, e.other_fee,
           c.id as club_id, c.name as club_name, c.slug as club_slug, c.color as club_color
          FROM events e
          JOIN clubs c ON e.club_id = c.id
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
       registration_open = body.registration_open !== undefined ? body.registration_open : (status === 'published'),
       is_popular = false,
       club_id: bodyClubId,
+      amrita_fee, other_fee,
     } = body;
 
     if (!name) return error('Event name is required');
@@ -158,6 +160,9 @@ export async function POST(req: NextRequest) {
     const effectiveUnstopUrl = (unstop_url || registration_url || '').trim() || null;
     const effectiveRegUrl = (registration_url || unstop_url || '').trim() || null;
 
+    const parsedAmritaFee = amrita_fee !== undefined && amrita_fee !== null && amrita_fee !== '' ? parseInt(String(amrita_fee)) : null;
+    const parsedOtherFee = other_fee !== undefined && other_fee !== null && other_fee !== '' ? parseInt(String(other_fee)) : null;
+
     const result = await db.query(
       `INSERT INTO events (
         club_id, created_by, name, event_code, tagline, short_description,
@@ -165,10 +170,10 @@ export async function POST(req: NextRequest) {
         start_time, end_time, day_number, min_team_size, max_team_size,
         capacity, fee, prize_pool, eligibility, rules, rounds,
         coordinators, poster_url, rulebook_url, unstop_url, registration_url, status,
-        registration_open, is_popular
+        registration_open, is_popular, amrita_fee, other_fee
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-        $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31
+        $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33
       ) RETURNING *`,
       [
         clubId, session.userId, name, eventCode, tagline,
@@ -180,7 +185,8 @@ export async function POST(req: NextRequest) {
         parsedRules,
         parsedRounds,
         parsedCoordinators,
-        poster_url, rulebook_url, effectiveUnstopUrl, effectiveRegUrl, status, registration_open, is_popular
+        poster_url, rulebook_url, effectiveUnstopUrl, effectiveRegUrl, status, registration_open, is_popular,
+        parsedAmritaFee, parsedOtherFee
       ]
     );
 
