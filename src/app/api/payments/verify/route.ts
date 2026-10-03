@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     if (!targetUserId && (payment_db_id || effectiveOrderId)) {
       const pRes = await db.query(
-        `SELECT user_id FROM payments WHERE id = $1 OR cf_order_id = $2 OR razorpay_order_id = $2`,
+        `SELECT user_id FROM payments WHERE id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $2`,
         [payment_db_id ?? null, effectiveOrderId ?? null]
       );
       if (pRes.rows.length > 0) {
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
 
         // Idempotency check: if payment already marked paid
         const pRes = await db.query(
-          `SELECT id, status, user_id FROM payments WHERE (id = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3`,
+          `SELECT id, status, user_id FROM payments WHERE (id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3`,
           [payment_db_id ?? null, effectiveOrderId ?? null, targetUserId]
         );
 
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
         await db.query(
           `UPDATE payments
            SET cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, status = 'paid', updated_at = NOW()
-           WHERE (id = $3 OR cf_order_id = $4 OR razorpay_order_id = $4) AND user_id = $5`,
+           WHERE (id::text = $3 OR cf_order_id = $4 OR razorpay_order_id = $4) AND user_id = $5`,
           [payId, sig, payment_db_id ?? null, effectiveOrderId ?? null, targetUserId],
         );
         const userUpdateRes = await db.query(
@@ -281,7 +281,7 @@ export async function POST(req: NextRequest) {
       const paymentRes = await client.query(
         `SELECT id, status, amount, cf_order_id, razorpay_order_id
          FROM payments
-         WHERE (id = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3
+         WHERE (id::text = $1 OR cf_order_id = $2 OR razorpay_order_id = $2) AND user_id = $3
          FOR UPDATE`,
         [payment_db_id ?? null, effectiveOrderId ?? null, targetUserId],
       );

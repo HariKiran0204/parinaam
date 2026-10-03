@@ -207,9 +207,9 @@ export async function POST(req: NextRequest) {
     try {
       const payRes = await db.query(
         `INSERT INTO payments (user_id, type, amount, cf_order_id, payment_session_id, razorpay_order_id, status)
-         VALUES ($1, 'platform_fee', 100000, $2, $3, $2, 'created')
+         VALUES ($1, 'platform_fee', 100000, $2, $3, $4, 'created')
          RETURNING id`,
-        [user.id, cfOrder.order_id, cfOrder.payment_session_id]
+        [user.id, cfOrder.order_id, cfOrder.payment_session_id, cfOrder.order_id]
       );
       paymentDbId = payRes.rows[0]?.id || null;
     } catch (pErr: any) {

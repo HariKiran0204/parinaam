@@ -96,8 +96,8 @@ export async function GET(
     try {
       const paymentsResult = await db.query(
         `SELECT 
-          id as payment_id, razorpay_order_id, razorpay_payment_id,
-          amount, currency, status, notes, created_at
+          id as payment_id, cf_order_id, cf_payment_id, razorpay_order_id, razorpay_payment_id,
+          amount, currency, status, metadata as notes, created_at
          FROM payments
          WHERE user_id = $1
          ORDER BY created_at DESC`,
