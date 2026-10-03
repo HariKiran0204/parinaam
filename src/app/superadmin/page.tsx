@@ -151,6 +151,7 @@ export default function SuperAdminDashboard() {
   const [analyticsClubFilter, setAnalyticsClubFilter] = useState<string>('all');
   const [analyticsSearchQuery, setAnalyticsSearchQuery] = useState<string>('');
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [kycSearchQuery, setKycSearchQuery] = useState<string>('');
   const [tab, setTab] = useState<'overview' | 'analytics' | 'clubs' | 'verify' | 'broadcast'>('overview');
   const [refreshing, setRefreshing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -277,9 +278,23 @@ export default function SuperAdminDashboard() {
   const feedTotalPages = Math.max(1, Math.ceil(feedTotal / feedPageSize));
   const paginatedFeed = activeFeedList.slice((feedPage - 1) * feedPageSize, feedPage * feedPageSize);
 
-  const kycTotal = pendingUsers.length;
+  const filteredPendingUsers = pendingUsers.filter(u => {
+    const q = kycSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (u.full_name && u.full_name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.roll_number && u.roll_number.toLowerCase().includes(q)) ||
+      (u.college_name && u.college_name.toLowerCase().includes(q)) ||
+      (u.department && u.department.toLowerCase().includes(q)) ||
+      (u.phone && u.phone.toLowerCase().includes(q)) ||
+      (u.year_of_study && String(u.year_of_study).toLowerCase().includes(q))
+    );
+  });
+
+  const kycTotal = filteredPendingUsers.length;
   const kycTotalPages = Math.max(1, Math.ceil(kycTotal / kycPageSize));
-  const paginatedKyc = pendingUsers.slice((kycPage - 1) * kycPageSize, kycPage * kycPageSize);
+  const paginatedKyc = filteredPendingUsers.slice((kycPage - 1) * kycPageSize, kycPage * kycPageSize);
 
   return (
     <div className="min-h-screen bg-[#05030a] pt-20 pb-16">
@@ -1115,11 +1130,76 @@ export default function SuperAdminDashboard() {
         {/* TAB 4: KYC QUEUE */}
         {tab === 'verify' && (
           <div className="space-y-4">
+            {/* Search & Filter Header Bar */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative w-full sm:max-w-md">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={kycSearchQuery}
+                  onChange={e => {
+                    setKycSearchQuery(e.target.value);
+                    setKycPage(1);
+                  }}
+                  placeholder="Search by student name, roll number, college, email..."
+                  className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                />
+                {kycSearchQuery && (
+                  <button
+                    onClick={() => {
+                      setKycSearchQuery('');
+                      setKycPage(1);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end text-xs text-slate-400">
+                <span className="font-mono">
+                  Showing <strong className="text-white">{filteredPendingUsers.length}</strong> of{' '}
+                  <strong className="text-purple-300">{pendingUsers.length}</strong> pending
+                </span>
+                {kycSearchQuery && (
+                  <button
+                    onClick={() => {
+                      setKycSearchQuery('');
+                      setKycPage(1);
+                    }}
+                    className="text-xs text-purple-400 hover:text-purple-300 font-semibold"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
             {pendingUsers.length === 0 ? (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center">
                 <CheckCircle size={36} className="mx-auto text-emerald-400 mb-2" />
                 <h4 className="text-base font-bold text-white">KYC Queue Clear</h4>
                 <p className="text-xs text-slate-400 mt-1">No pending student ID card approvals at this moment.</p>
+              </div>
+            ) : filteredPendingUsers.length === 0 ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center space-y-3">
+                <Search size={36} className="mx-auto text-slate-500 mb-1" />
+                <h4 className="text-base font-bold text-white">No Matching Students Found</h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  No pending verification requests matched &ldquo;{kycSearchQuery}&rdquo;. Try searching with a different name, roll number, college, or email.
+                </p>
+                <div>
+                  <button
+                    onClick={() => {
+                      setKycSearchQuery('');
+                      setKycPage(1);
+                    }}
+                    className="px-4 py-2 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    Clear Search Filter
+                  </button>
+                </div>
               </div>
             ) : (
               <>
