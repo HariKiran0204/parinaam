@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FestEvent } from '../../types';
-import { Calendar, Clock, MapPin, Users, Trophy, ChevronRight, Check, Heart, ShoppingBag, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Trophy, ChevronRight, Check, Heart, ShoppingBag, ExternalLink, Ticket } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import { useFest } from '../../context/FestContext';
 import { useCart } from '../../context/CartContext';
@@ -10,6 +10,7 @@ import { useCart } from '../../context/CartContext';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { isStudentProfileComplete } from '@/lib/institutionPolicy';
+import { EventRegistrationModal } from './EventRegistrationModal';
 
 interface EventCardProps {
   event: FestEvent;
@@ -20,9 +21,11 @@ interface EventCardProps {
 export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
   const { user } = useAuth();
   const router = useRouter();
-  const { isInCart, isConfirmed, toggleCartItem } = useCart();
+  const { isInCart, isConfirmed, openCart } = useCart();
   const registered = isConfirmed(event.id);
   const inCart = isInCart(event.id);
+
+  const [regModalOpen, setRegModalOpen] = useState(false);
 
   const isStudent = user?.role === 'student';
   const isProfileComplete = isStudentProfileComplete(user);
@@ -32,7 +35,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
     ? (event.unstopUrl || event.registrationUrl)
     : `https://${event.unstopUrl || event.registrationUrl}`;
 
-  const handleInterestedClick = (e: React.MouseEvent) => {
+  const handleRegisterClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user) {
       router.push('/auth/login?redirect=/events');
@@ -44,7 +47,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
       return;
     }
     if (isStudent) {
-      toggleCartItem(event.id, event.name);
+      setRegModalOpen(true);
     }
   };
 
@@ -93,18 +96,18 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
           <span>{event.prizePool}</span>
         </div>
 
-        {/* "I'm Interested" Heart/Cart Toggle Badge — Rendered ONLY for non-confirmed guests/students if not Unstop */}
+        {/* Register Badge / Cart Toggle — Rendered ONLY for non-confirmed guests/students if not Unstop */}
         {!isAdmin && !registered && !hasUnstop && (
           <button
-            onClick={handleInterestedClick}
+            onClick={handleRegisterClick}
             className={`absolute bottom-3.5 right-3.5 z-20 p-2.5 rounded-xl transition-all border shadow-lg ${
               inCart && isStudent
-                ? 'bg-pink-600 text-white border-pink-500 scale-105 shadow-pink-900/40'
-                : 'bg-black/85 backdrop-blur-md text-slate-300 border-white/20 hover:text-pink-400 hover:border-pink-500/50'
+                ? 'bg-purple-600 text-white border-purple-400 scale-105 shadow-purple-900/40'
+                : 'bg-black/85 backdrop-blur-md text-slate-300 border-white/20 hover:text-purple-300 hover:border-purple-500/50'
             }`}
-            title={!user ? "Sign in to add to cart" : inCart ? "In your Interested Cart" : "I'm Interested — Add to Cart"}
+            title={!user ? "Sign in to register" : inCart ? "In your Cart — Click to manage" : "Register for Event"}
           >
-            <Heart size={16} className={inCart && isStudent ? 'fill-white' : ''} />
+            <Ticket size={16} className={inCart && isStudent ? 'text-white' : ''} />
           </button>
         )}
       </div>
@@ -166,22 +169,22 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
               </span>
             ) : (
               <button
-                onClick={handleInterestedClick}
+                onClick={handleRegisterClick}
                 className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   inCart && isStudent
-                    ? 'bg-pink-600/30 text-pink-300 border border-pink-500/50'
-                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-glow'
+                    ? 'bg-purple-600/30 text-purple-300 border border-purple-500/50'
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-glow'
                 }`}
               >
                 {inCart && isStudent ? (
                   <>
                     <Check size={13} />
-                    <span>✓ Interested</span>
+                    <span>✓ In Cart</span>
                   </>
                 ) : (
                   <>
-                    <Heart size={13} />
-                    <span>I'm Interested</span>
+                    <Ticket size={13} />
+                    <span>Register</span>
                   </>
                 )}
               </button>
@@ -190,6 +193,26 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelect }) => {
         </div>
       </div>
 
+      {/* Team / Individual Registration Modal */}
+      <EventRegistrationModal
+        event={{
+          id: event.id,
+          name: event.name,
+          club_name: event.clubName || (event as any).club_name || (event as any).organizer || 'Chakravyuha Club',
+          event_code: event.eventCode,
+          category: event.category,
+          poster_url: event.image,
+          fee: event.fee,
+          amrita_fee: (event as any).amrita_fee ?? (event.minTeamSize && event.minTeamSize > 1 ? 150 : event.fee),
+          other_fee: (event as any).other_fee ?? (event.minTeamSize && event.minTeamSize > 1 ? 300 : event.fee),
+          min_team_size: event.minTeamSize || 1,
+          max_team_size: event.maxTeamSize || 1,
+          registration_open: true,
+          status: 'published',
+        }}
+        isOpen={regModalOpen}
+        onClose={() => setRegModalOpen(false)}
+      />
     </div>
   );
 };

@@ -8,12 +8,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { isStudentProfileComplete } from '@/lib/institutionPolicy';
+import { EventRegistrationModal } from '@/components/events/EventRegistrationModal';
 
 interface Club { id: string; name: string; slug: string; color: string; event_count: string; }
 interface Event {
   id: string; name: string; event_code: string; tagline: string; short_description: string;
   category: string; venue: string; date_start: string; start_time: string; end_time: string;
   min_team_size: number; max_team_size: number; capacity: number; enrolled: number; fee: number;
+  amrita_fee?: number | null; other_fee?: number | null;
   prize_pool: string; poster_url: string; status: string; registration_open: boolean;
   unstop_url?: string; registration_url?: string;
   is_popular: boolean; is_featured: boolean;
@@ -181,7 +183,7 @@ export default function EventsPage() {
 
 function EventCard({ event, index, user }: { event: Event; index: number; user: ReturnType<typeof useAuth>['user'] }) {
   const router = useRouter();
-  const { isInCart, isConfirmed, toggleCartItem } = useCart();
+  const { isInCart, isConfirmed } = useCart();
   const registered = isConfirmed(event.id);
   const inCart = isInCart(event.id);
   const isTeam = event.max_team_size > 1;
@@ -195,13 +197,15 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
   const almostFull = spotsLeft !== null && spotsLeft < 20 && spotsLeft > 0;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
 
+  const [regModalOpen, setRegModalOpen] = useState(false);
+
   const isAdmin = user?.role === 'club_admin' || user?.role === 'super_admin';
   const isStudent = user?.role === 'student';
   const isProfileComplete = isStudentProfileComplete(user);
 
   const isRegistrationOpen = event.status === 'published' ? (event.registration_open ?? true) : Boolean(event.registration_open);
 
-  const handleInterestedClick = () => {
+  const handleRegisterClick = () => {
     if (!user) {
       router.push('/auth/login?redirect=/events');
       return;
@@ -212,7 +216,7 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
       return;
     }
     if (isStudent) {
-      toggleCartItem(event.id, event.name);
+      setRegModalOpen(true);
     }
   };
 
@@ -351,13 +355,13 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
               </span>
             ) : (
               <button
-                onClick={handleInterestedClick}
+                onClick={handleRegisterClick}
                 disabled={isFull || !isRegistrationOpen}
                 className={`flex-1 text-center text-sm font-semibold py-2 rounded-xl transition-all ${
                   isFull || !isRegistrationOpen
                     ? 'bg-white/5 text-slate-600 cursor-not-allowed'
                     : inCart && isStudent
-                      ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-900/20'
+                      ? 'bg-purple-600/30 text-purple-300 border border-purple-500/50'
                       : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-900/20'
                 }`}>
                 {isFull
@@ -365,14 +369,34 @@ function EventCard({ event, index, user }: { event: Event; index: number; user: 
                   : !isRegistrationOpen
                     ? 'Closed'
                     : inCart && isStudent
-                      ? '✓ Interested'
-                      : "I'm Interested"}
+                      ? '✓ In Cart'
+                      : 'Register'}
               </button>
             )
           )}
         </div>
       </div>
+
+      {/* Team / Individual Registration Modal */}
+      <EventRegistrationModal
+        event={{
+          id: event.id,
+          name: event.name,
+          club_name: event.club_name,
+          event_code: event.event_code,
+          category: event.category,
+          poster_url: event.poster_url,
+          fee: event.fee,
+          amrita_fee: event.amrita_fee,
+          other_fee: event.other_fee,
+          min_team_size: event.min_team_size || 1,
+          max_team_size: event.max_team_size || 1,
+          registration_open: isRegistrationOpen,
+          status: event.status,
+        }}
+        isOpen={regModalOpen}
+        onClose={() => setRegModalOpen(false)}
+      />
     </motion.div>
   );
-
 }

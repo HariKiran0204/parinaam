@@ -35,7 +35,7 @@ interface EventItem {
 
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
-  const { cartItemIds, removeFromCart, clearCart, refreshRegistrations } = useCart();
+  const { cartItemIds, cartTeamData, setEventTeamData, removeFromCart, clearCart, refreshRegistrations } = useCart();
   const { user } = useAuth();
   const router = useRouter();
 
@@ -48,6 +48,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   // Team members: map from eventId -> array of added members
   const [teamMembersMap, setTeamMembersMap] = useState<Record<string, TeamMember[]>>({});
   const [expandedTeamEventId, setExpandedTeamEventId] = useState<string | null>(null);
+
+  // Sync team members from CartContext when opening or when cartTeamData changes
+  useEffect(() => {
+    if (isOpen && cartTeamData) {
+      const initial: Record<string, TeamMember[]> = {};
+      Object.entries(cartTeamData).forEach(([evId, data]) => {
+        if (data.teamMembers && data.teamMembers.length > 0) {
+          initial[evId] = data.teamMembers;
+        }
+      });
+      setTeamMembersMap(prev => ({ ...initial, ...prev }));
+    }
+  }, [isOpen, cartTeamData]);
 
   // Mock checkout modal state
   const [mockModalOpen, setMockModalOpen] = useState(false);
@@ -375,7 +388,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                 </div>
                 <h3 className="font-bold text-white text-base">Your Cart is Empty</h3>
                 <p className="text-slate-400 text-xs max-w-xs mx-auto">
-                  Browse flagship competitions and click "I'm Interested" to add events for bulk registration.
+                  Browse competitions and click "Register" to configure your team or individual entry and proceed to checkout.
                 </p>
                 <button
                   onClick={onClose}
@@ -476,7 +489,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                             minTeamSize={minSize}
                             maxTeamSize={maxSize}
                             members={membersForEvt}
-                            onChange={(newMembers) => setTeamMembersMap(prev => ({ ...prev, [evt.id]: newMembers }))}
+                            onChange={(newMembers) => {
+                              setTeamMembersMap(prev => ({ ...prev, [evt.id]: newMembers }));
+                              const existing = cartTeamData[evt.id] || {};
+                              setEventTeamData(evt.id, { ...existing, teamMembers: newMembers });
+                            }}
                             leaderIsAmrita={isAmrita}
                           />
                         </div>

@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { isStudentProfileComplete } from '@/lib/institutionPolicy';
+import { EventRegistrationModal } from '@/components/events/EventRegistrationModal';
 
 interface EventDetail {
   id: string; name: string; event_code: string; tagline: string;
@@ -19,7 +20,9 @@ interface EventDetail {
   tags: string[]; venue: string; date_start: string; date_end: string;
   start_time: string; end_time: string; day_number: number;
   min_team_size: number; max_team_size: number;
-  capacity: number; enrolled: number; fee: number; prize_pool: string;
+  capacity: number; enrolled: number; fee: number;
+  amrita_fee?: number | null; other_fee?: number | null;
+  prize_pool: string;
   eligibility: string; rules: string[]; rounds: { name: string; description: string; date: string }[];
   coordinators: { name: string; role: string; phone: string; email: string }[];
   poster_url: string; rulebook_url: string;
@@ -36,11 +39,12 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { isInCart, isConfirmed, toggleCartItem } = useCart();
+  const { isInCart, isConfirmed } = useCart();
 
   const [event, setEvent]   = useState<EventDetail | null>(null);
   const [myReg, setMyReg]   = useState<UserRegistration | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [regModalOpen, setRegModalOpen] = useState(false);
 
   useEffect(() => {
     fetch(`/api/events/${id}`).then(r => r.json()).then(d => {
@@ -53,7 +57,7 @@ export default function EventDetailPage() {
   const isStudent = user?.role === 'student';
   const isProfileComplete = isStudentProfileComplete(user);
 
-  const handleInterestedClick = () => {
+  const handleRegisterClick = () => {
     if (!user) { router.push(`/auth/login?redirect=/events/${id}`); return; }
     if (isStudent && !isProfileComplete) {
       alert('Please complete your platform registration profile before choosing events.');
@@ -61,7 +65,7 @@ export default function EventDetailPage() {
       return;
     }
     if (isStudent) {
-      toggleCartItem(id, event?.name);
+      setRegModalOpen(true);
     }
   };
 
@@ -332,13 +336,13 @@ export default function EventDetailPage() {
                   (!user || user.role === 'student') && (
                     <>
                       <button
-                        onClick={handleInterestedClick}
+                        onClick={handleRegisterClick}
                         disabled={isFull || !isRegistrationOpen || (!!user && user.verification_status !== 'verified')}
                         className={`w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all ${
                           isFull || !isRegistrationOpen || (!!user && user.verification_status !== 'verified')
                             ? 'bg-white/5 text-slate-500 cursor-not-allowed border border-white/10'
                             : inCart && isStudent
-                              ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-900/30'
+                              ? 'bg-purple-600/30 text-purple-300 border border-purple-500/50'
                               : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-900/30'
                         }`}
                       >
@@ -351,8 +355,8 @@ export default function EventDetailPage() {
                               : user.verification_status !== 'verified'
                                 ? '⏳ Verification Pending'
                                 : inCart && isStudent
-                                  ? '✓ Interested'
-                                  : "I'm Interested"}
+                                  ? '✓ In Cart'
+                                  : 'Register for Event'}
                       </button>
                       {!user && (
                         <p className="text-slate-600 text-xs text-center mt-2">
@@ -371,6 +375,13 @@ export default function EventDetailPage() {
                     <p className="text-slate-500 text-[11px] mt-1">Student registration is disabled for administrator accounts.</p>
                   </div>
                 )}
+
+                {/* Team / Individual Registration Modal */}
+                <EventRegistrationModal
+                  event={event}
+                  isOpen={regModalOpen}
+                  onClose={() => setRegModalOpen(false)}
+                />
 
 
                 {/* Club info */}
