@@ -42,6 +42,22 @@ export default function EventsPage() {
     fetch('/api/clubs').then(r => r.json()).then(d => { if (d.success) setClubs(d.data.clubs); });
   }, []);
 
+  // Initialize filters from URL query parameters on load (e.g. /events?category=... or /events?search=...)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const catParam = urlParams.get('category');
+      const searchParam = urlParams.get('search');
+      const clubParam = urlParams.get('club_id') || urlParams.get('club');
+      if (catParam) setCategory(catParam);
+      if (searchParam) {
+        setSearchInput(searchParam);
+        setSearch(searchParam);
+      }
+      if (clubParam) setClubFilter(clubParam);
+    }
+  }, []);
+
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ status: 'published', page: String(page), limit: '18' });
