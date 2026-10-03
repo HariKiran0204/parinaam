@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
 
       const paymentResult = await db.query(
         `INSERT INTO payments (user_id, type, amount, cf_order_id, payment_session_id, razorpay_order_id, status)
-         VALUES ($1, 'platform_fee', $2, $3, $4, $3, 'created') RETURNING id`,
-        [session.userId, amount, cfOrder.order_id, cfOrder.payment_session_id],
+         VALUES ($1, 'platform_fee', $2, $3, $4, $5, 'created') RETURNING id`,
+        [session.userId, amount, cfOrder.order_id, cfOrder.payment_session_id, cfOrder.order_id],
       );
       return success({
         order_id: cfOrder.order_id,
@@ -316,9 +316,9 @@ export async function POST(req: NextRequest) {
         const freeOrderId = `free_evt_${Date.now()}`;
         await client.query(
           `UPDATE payments
-           SET status = 'paid', cf_order_id = $1, razorpay_order_id = $1, updated_at = NOW()
-           WHERE id = $2`,
-          [freeOrderId, paymentDbId],
+           SET status = 'paid', cf_order_id = $1, razorpay_order_id = $2, updated_at = NOW()
+           WHERE id = $3`,
+          [freeOrderId, freeOrderId, paymentDbId],
         );
         await client.query(
           `UPDATE registrations
@@ -414,9 +414,9 @@ export async function POST(req: NextRequest) {
     // Persist Cashfree order ID & payment_session_id on the payment record
     await db.query(
       `UPDATE payments 
-       SET cf_order_id = $1, payment_session_id = $2, razorpay_order_id = $1, updated_at = NOW() 
-       WHERE id = $3`,
-      [cfOrder.order_id, cfOrder.payment_session_id, paymentDbId],
+       SET cf_order_id = $1, payment_session_id = $2, razorpay_order_id = $3, updated_at = NOW() 
+       WHERE id = $4`,
+      [cfOrder.order_id, cfOrder.payment_session_id, cfOrder.order_id, paymentDbId],
     );
 
     return success({

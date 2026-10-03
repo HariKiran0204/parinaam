@@ -63,9 +63,9 @@ export async function POST(req: NextRequest) {
       const paymentRes = await client.query(
         `SELECT id, user_id, type, amount, status, cf_order_id, razorpay_order_id
          FROM payments
-         WHERE cf_order_id = $1 OR razorpay_order_id = $1 OR id = $2
+         WHERE cf_order_id = $1 OR razorpay_order_id = $2 OR id = $3
          FOR UPDATE`,
-        [order_id || null, payment_db_id || null]
+        [order_id || null, order_id || null, payment_db_id || null]
       );
 
       if (paymentRes.rows.length > 0) {
@@ -91,10 +91,10 @@ export async function POST(req: NextRequest) {
           `UPDATE payments
            SET status = 'paid',
                cf_payment_id = $1,
-               razorpay_payment_id = $1,
+               razorpay_payment_id = $2,
                updated_at = NOW()
-           WHERE id = $2`,
-          [paymentRef, paymentRecord.id]
+           WHERE id = $3`,
+          [paymentRef, paymentRef, paymentRecord.id]
         );
 
         // Update corresponding application records based on payment type

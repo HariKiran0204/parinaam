@@ -159,22 +159,22 @@ export async function POST(req: NextRequest) {
 
           // Insert or update payment record linked to newly created user
           const pRes = await client.query(
-            `SELECT id, status FROM payments WHERE (cf_order_id = $1 OR razorpay_order_id = $1) AND type = 'platform_fee' FOR UPDATE`,
-            [effectiveOrderId ?? null]
+            `SELECT id, status FROM payments WHERE (cf_order_id = $1 OR razorpay_order_id = $2) AND type = 'platform_fee' FOR UPDATE`,
+            [effectiveOrderId ?? null, effectiveOrderId ?? null]
           );
 
           if (pRes.rows.length === 0) {
             await client.query(
               `INSERT INTO payments (user_id, type, amount, cf_order_id, cf_payment_id, razorpay_order_id, razorpay_payment_id, razorpay_signature, status)
-               VALUES ($1, 'platform_fee', 100000, $2, $3, $2, $3, $4, 'paid')`,
-              [targetUser.id, effectiveOrderId ?? null, payId, sig]
+               VALUES ($1, 'platform_fee', 100000, $2, $3, $4, $5, $6, 'paid')`,
+              [targetUser.id, effectiveOrderId ?? null, payId, effectiveOrderId ?? null, payId, sig]
             );
           } else if (pRes.rows[0].status !== 'paid') {
             await client.query(
               `UPDATE payments
-               SET status = 'paid', cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, user_id = $3, updated_at = NOW()
-               WHERE id = $4`,
-              [payId, sig, targetUser.id, pRes.rows[0].id]
+               SET status = 'paid', cf_payment_id = $1, razorpay_payment_id = $2, razorpay_signature = $3, user_id = $4, updated_at = NOW()
+               WHERE id = $5`,
+              [payId, payId, sig, targetUser.id, pRes.rows[0].id]
             );
           }
 
@@ -214,9 +214,9 @@ export async function POST(req: NextRequest) {
 
         await db.query(
           `UPDATE payments
-           SET cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, status = 'paid', updated_at = NOW()
-           WHERE (id::text = $3 OR cf_order_id = $4 OR razorpay_order_id = $5) AND user_id = $6`,
-          [payId, sig, payment_db_id ?? null, effectiveOrderId ?? null, effectiveOrderId ?? null, targetUserId],
+           SET cf_payment_id = $1, razorpay_payment_id = $2, razorpay_signature = $3, status = 'paid', updated_at = NOW()
+           WHERE (id::text = $4 OR cf_order_id = $5 OR razorpay_order_id = $6) AND user_id = $7`,
+          [payId, payId, sig, payment_db_id ?? null, effectiveOrderId ?? null, effectiveOrderId ?? null, targetUserId],
         );
         const userUpdateRes = await db.query(
           `UPDATE users
@@ -424,18 +424,18 @@ export async function POST(req: NextRequest) {
         // All events were overbooked — mark payment for refund.
         await client.query(
           `UPDATE payments
-           SET status = 'refunded', cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, updated_at = NOW()
-           WHERE id = $3`,
-          [payId, sig, paymentRecord.id],
+           SET status = 'refunded', cf_payment_id = $1, razorpay_payment_id = $2, razorpay_signature = $3, updated_at = NOW()
+           WHERE id = $4`,
+          [payId, payId, sig, paymentRecord.id],
         );
         needsRefund = true;
       } else {
         // At least one registration confirmed — payment is paid.
         await client.query(
           `UPDATE payments
-           SET status = 'paid', cf_payment_id = $1, razorpay_payment_id = $1, razorpay_signature = $2, updated_at = NOW()
-           WHERE id = $3`,
-          [payId, sig, paymentRecord.id],
+           SET status = 'paid', cf_payment_id = $1, razorpay_payment_id = $2, razorpay_signature = $3, updated_at = NOW()
+           WHERE id = $4`,
+          [payId, payId, sig, paymentRecord.id],
         );
         if (paymentRecord.user_id) {
           await client.query(

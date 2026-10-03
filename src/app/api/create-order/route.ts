@@ -217,8 +217,8 @@ export async function POST(req: NextRequest) {
     // Persist order details against internal order record in database if present
     if (internalPaymentId) {
       await db.query(
-        `UPDATE payments SET cf_order_id = $1, payment_session_id = $2, razorpay_order_id = $1, updated_at = NOW() WHERE id = $3`,
-        [cfOrder.order_id, cfOrder.payment_session_id, internalPaymentId]
+        `UPDATE payments SET cf_order_id = $1, payment_session_id = $2, razorpay_order_id = $3, updated_at = NOW() WHERE id = $4`,
+        [cfOrder.order_id, cfOrder.payment_session_id, cfOrder.order_id, internalPaymentId]
       );
     } else {
       // Create a payment record to persist the order id for idempotency
