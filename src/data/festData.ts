@@ -257,6 +257,38 @@ export const GALLERY_ITEMS: GalleryClubItem[] = [
     imageUrl: '/images/clubs/prachurya.png',
     logoUrl: '/images/clubs/prachurya-emblem.png',
     cardUrl: '/images/clubs/prachurya-card.png',
+    photos: [
+      {
+        url: '/images/clubs/prachurya/prachurya-photo-1.jpg',
+        title: 'Packed Auditorium & Debating Floor',
+        caption: 'Delegates and students packed in the university seminar hall following intense parliamentary debate rounds and quiz heats.'
+      },
+      {
+        url: '/images/clubs/prachurya/prachurya-photo-2.jpg',
+        title: 'Grand Prize Felicitation Ceremony',
+        caption: 'Winning teams celebrating on stage with official merit certificates and national championship cash prize cheques.'
+      },
+      {
+        url: '/images/clubs/prachurya/prachurya-photo-3.jpg',
+        title: 'Jury Evaluation & Pitch Defense',
+        caption: 'Student teams defending their case analyses, creative concepts, and technical solutions before distinguished faculty and judges.'
+      },
+      {
+        url: '/images/clubs/prachurya/prachurya-photo-4.jpg',
+        title: 'Nightfall Fest Stage & Marquee Installation',
+        caption: 'Luminous 3D typography and open-air festival stage under evening campus spotlights for the 30-hour summit.'
+      },
+      {
+        url: '/images/clubs/prachurya/prachurya-photo-5.jpg',
+        title: 'Core Organizing & Student Leadership Crew',
+        caption: 'The student convenors, organizers, and logistics leads assembled at the central campus atrium stage.'
+      },
+      {
+        url: '/images/clubs/prachurya/prachurya-photo-6.jpg',
+        title: 'Faculty Mentorship & Lead Convenors',
+        caption: 'Club leadership with faculty coordinators at the celebration stage following successful event execution.'
+      }
+    ],
     caption: 'Fiercely contested Parliamentary debates and national trivia rounds igniting student minds across the seminar halls.',
     description: 'Dedicated to igniting curiosity and inspiring expression ("Ignite, Inspire"), Prachurya hosts the festival\'s parliamentary debates, national general quizzes, creative writing summits, and fine arts exhibitions.',
     eventsConducted: ['Parliamentary Debate Summit', 'Mega General Quiz', 'Canvas & Calligraphy Gala']
