@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
       const evtRes = await client.query(
         `SELECT id, capacity, enrolled, fee
          FROM events
-         WHERE id = ANY($1)
+         WHERE id = ANY($1::uuid[])
          ORDER BY id
          FOR UPDATE`,
         [eventIds],

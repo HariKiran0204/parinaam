@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
       const eventsRes = await client.query(
         `SELECT id, name, fee, amrita_fee, other_fee, capacity, enrolled, registration_open, status, max_team_size
          FROM events
-         WHERE id = ANY($1)
+         WHERE id = ANY($1::uuid[])
          ORDER BY id
          FOR UPDATE`,
         [eventIds],
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
       // Reject if the user already has a CONFIRMED registration for any event in the cart.
       const existingRegsRes = await client.query(
         `SELECT event_id FROM registrations
-         WHERE user_id = $1 AND event_id = ANY($2) AND status = 'CONFIRMED'`,
+         WHERE user_id = $1 AND event_id = ANY($2::uuid[]) AND status = 'CONFIRMED'`,
         [session.userId, eventIds],
       );
       if (existingRegsRes.rows.length > 0) {
@@ -273,7 +273,7 @@ export async function POST(req: NextRequest) {
           const leaderIsAmrita = user.is_amrita_student || isInstitutionalEmail(user.email);
 
           const memberRes = await client.query(
-            `SELECT id, is_amrita_student, email, verification_status, full_name FROM users WHERE id = ANY($1) AND role = 'student'`,
+            `SELECT id, is_amrita_student, email, verification_status, full_name FROM users WHERE id = ANY($1::uuid[]) AND role = 'student'`,
             [teamMemberUserIds]
           );
 

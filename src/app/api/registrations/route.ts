@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (isTeamEvent && team_member_user_ids.length > 0) {
       // Fetch team member data in one query
       const memberRes = await db.query(
-        `SELECT id, is_amrita_student, email, verification_status, college_name, full_name FROM users WHERE id = ANY($1) AND role = 'student'`,
+        `SELECT id, is_amrita_student, email, verification_status, college_name, full_name FROM users WHERE id = ANY($1::uuid[]) AND role = 'student'`,
         [team_member_user_ids]
       );
 

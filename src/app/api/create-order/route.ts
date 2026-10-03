@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
       const eventsRes = await db.query(
         `SELECT id, name, fee, capacity, enrolled, registration_open, status
          FROM events
-         WHERE id = ANY($1)
+         WHERE id = ANY($1::uuid[])
          ORDER BY id`,
         [eventIds]
       );
