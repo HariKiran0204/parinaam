@@ -164,7 +164,7 @@ export const GallerySection = () => {
   const [selectedCluster, setSelectedCluster] = useState<string>('All');
 
   const clusters = [
-    { id: 'All', name: 'All Clubs (9)', icon: Sparkles },
+    { id: 'All', name: `All Clubs (${GALLERY_ITEMS.length})`, icon: Sparkles },
     { id: 'Tech & Innovation', name: 'Tech & Innovation', icon: Cpu },
     { id: 'Arts & Culture', name: 'Arts & Culture', icon: Palette },
     { id: 'Media & Play', name: 'Media & Play', icon: Film },
@@ -252,7 +252,7 @@ export const GallerySection = () => {
               Life at Amrita — Our Clubs
             </h2>
             <p className="text-sm sm:text-base text-slate-400 max-w-2xl font-sans leading-relaxed">
-              Meet the 9 university clubs across <strong className="text-slate-200">Tech &amp; Innovation</strong>,{' '}
+              Meet the {GALLERY_ITEMS.length} university clubs across <strong className="text-slate-200">Tech &amp; Innovation</strong>,{' '}
               <strong className="text-slate-200">Arts &amp; Culture</strong>, and{' '}
               <strong className="text-slate-200">Media &amp; Play</strong> that organized flagship events, hackathons, and concerts.
             </p>
@@ -261,7 +261,7 @@ export const GallerySection = () => {
           {/* Quick Info Box */}
           <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-mono text-slate-400 hidden sm:block shrink-0">
             <span className="block text-[10px] uppercase text-purple-400">Festival Hub</span>
-            <span className="text-white font-bold">3 Clusters • 9 Leading Clubs</span>
+            <span className="text-white font-bold">3 Clusters • {GALLERY_ITEMS.length} Leading Clubs</span>
           </div>
         </div>
 
@@ -363,6 +363,18 @@ export const GallerySection = () => {
                           </button>
                         </>
                       )}
+
+                      {/* Photo Caption Overlay */}
+                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3 pt-6 pointer-events-none z-10 flex flex-col justify-end">
+                        <p className="text-xs font-mono font-bold text-white tracking-wide">
+                          {currentPhoto.title}
+                        </p>
+                        {currentPhoto.caption && (
+                          <p className="text-[11px] text-slate-300 line-clamp-2 font-sans">
+                            {currentPhoto.caption}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     // Display Official Logo Banner

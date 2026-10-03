@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import seedEvents from './seedEvents.json';
 
 export interface MockUser {
   id: string;
@@ -145,53 +146,7 @@ const USERS_DATA: MockUser[] = [
 ];
 
 // Flagship events seeded for development and testing
-const EVENTS_DATA: MockEvent[] = [
-  {
-    id: 'evt-agentic-ai-n8n',
-    club_id: 'club-3', // ReLU
-    created_by: 'user-admin-relu',
-    name: 'Agentic AI & n8n Automation Hackathon',
-    event_code: 'RELU-AGNT',
-    tagline: 'Build autonomous multi-agent pipelines & workflows with n8n and LLMs',
-    short_description: 'Design, orchestrate, and deploy autonomous agentic AI workflows integrating open-source n8n automation, LLMs, and real-time APIs.',
-    full_description: 'Join the premier Agentic AI challenge of PARINAAM 2026 organized by ReLU. Teams will design and demonstrate end-to-end multi-agent systems using n8n and state-of-the-art LLMs, tackling enterprise automation, workflow orchestration, and generative intelligence.',
-    category: 'Coding & Hackathon',
-    tags: ['Agentic AI', 'n8n', 'LLMs', 'Automation', 'AI/ML'],
-    venue: 'AI & Data Analytics Lab, Amrita Vishwa Vidyapeetham',
-    date_start: '2026-10-11',
-    date_end: '2026-10-12',
-    start_time: '10:00 AM',
-    end_time: '05:00 PM',
-    day_number: 1,
-    min_team_size: 1,
-    max_team_size: 3,
-    capacity: 100,
-    enrolled: 18,
-    fee: 0,
-    prize_pool: '₹35,000 + Cloud Credits',
-    eligibility: 'Open to all undergraduate and postgraduate engineering students.',
-    rules: [
-      'Teams must design functional workflows using n8n community or self-hosted instances.',
-      'Workflows must include at least 2 autonomous agentic loops or tool-use steps.',
-      'All code and automation schemas must be submitted to GitHub.'
-    ],
-    rounds: [
-      { name: 'Round 1: Architecture Pitch', description: 'Present agentic design, tools, and trigger model', date: 'Day 1' },
-      { name: 'Round 2: Live Prototype Demo', description: 'End-to-end workflow execution and stress testing', date: 'Day 2' }
-    ],
-    coordinators: [
-      { name: 'Arun V.', role: 'Student Coordinator', phone: '9876543210', email: 'arun@relu.amrita.edu' }
-    ],
-    poster_url: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1000&q=80',
-    rulebook_url: '',
-    status: 'published',
-    registration_open: true,
-    is_popular: true,
-    is_featured: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-];
+const EVENTS_DATA: MockEvent[] = (seedEvents as unknown as MockEvent[]);
 
 // Global in-memory storage singleton
 class MockDbEngine {
@@ -208,6 +163,89 @@ class MockDbEngine {
     registration_open: 'true',
     amrita_domain: 'av.students.amrita.edu',
   };
+
+  constructor() {
+    this.syncWithProduction();
+  }
+
+  async syncWithProduction(): Promise<void> {
+    try {
+      if (typeof fetch !== 'undefined') {
+        const res = await fetch('https://parinaam.online/api/events?status=published&limit=100', {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.success && Array.isArray(json?.data?.events)) {
+            const liveEvents: any[] = json.data.events;
+            const clubSlugToId: Record<string, string> = {
+              'chakravyuha': 'club-1',
+              'prachurya': 'club-2',
+              'relu': 'club-3',
+              'avisruta': 'club-4',
+              'salesforce-agentblazer': 'club-5',
+              'saptaswara': 'club-6',
+              'robotics': 'club-7',
+              'ieee': 'club-8',
+              'avinya': 'club-9',
+              'adivika': 'club-10',
+              'nrityasparsh': 'club-11',
+              'drisya': 'club-12',
+            };
+            for (const le of liveEvents) {
+              const mappedClubId = clubSlugToId[le.club_slug] || le.club_id || 'club-1';
+              const existingIdx = this.events.findIndex(e => e.id === le.id || e.event_code === le.event_code);
+              const formattedEvent: MockEvent = {
+                id: le.id,
+                club_id: mappedClubId,
+                created_by: `usr-admin-${le.club_slug || 'chakravyuha'}`,
+                name: le.name,
+                event_code: le.event_code,
+                tagline: le.tagline || '',
+                short_description: le.short_description || '',
+                full_description: le.full_description || le.short_description || '',
+                category: le.category || 'General',
+                tags: Array.isArray(le.tags) ? le.tags : [],
+                venue: le.venue || 'Amrita Campus',
+                date_start: le.date_start ? le.date_start.split('T')[0] : '2026-10-11',
+                date_end: le.date_end ? le.date_end.split('T')[0] : '2026-10-12',
+                start_time: le.start_time || '10:00 AM',
+                end_time: le.end_time || '05:00 PM',
+                day_number: Number(le.day_number) || 1,
+                min_team_size: Number(le.min_team_size) || 1,
+                max_team_size: Number(le.max_team_size) || 1,
+                capacity: Number(le.capacity) || 100,
+                enrolled: Number(le.enrolled) || 0,
+                fee: Number(le.fee) || 0,
+                prize_pool: le.prize_pool || '',
+                eligibility: le.eligibility || 'Open to all students',
+                rules: Array.isArray(le.rules) ? le.rules : [],
+                rounds: Array.isArray(le.rounds) ? le.rounds : [],
+                coordinators: Array.isArray(le.coordinators) ? le.coordinators : [],
+                poster_url: le.poster_url || '',
+                rulebook_url: le.rulebook_url || '',
+                unstop_url: le.unstop_url || '',
+                registration_url: le.registration_url || '',
+                status: le.status || 'published',
+                registration_open: le.registration_open !== false,
+                is_popular: Boolean(le.is_popular),
+                is_featured: Boolean(le.is_featured),
+                created_at: le.created_at || new Date().toISOString(),
+                updated_at: le.updated_at || new Date().toISOString(),
+              };
+              if (existingIdx >= 0) {
+                this.events[existingIdx] = { ...this.events[existingIdx], ...formattedEvent };
+              } else {
+                this.events.push(formattedEvent);
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // offline or unreachable
+    }
+  }
 
   private _filterEvents(qLower: string, params: any[] = []): MockEvent[] {
     let list = [...this.events];
@@ -867,4 +905,7 @@ declare global {
 export const mockDb = global.__parinaam_mock_db || new MockDbEngine();
 if (process.env.NODE_ENV !== 'production') {
   global.__parinaam_mock_db = mockDb;
+  if (mockDb.events.length < EVENTS_DATA.length) {
+    mockDb.events = [...EVENTS_DATA];
+  }
 }
